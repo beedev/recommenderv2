@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parameter Extraction Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+        }
+
+        .test-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .output-section {
+            margin-top: 30px;
+        }
+
+        .output-box {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .output-box h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .json-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        .json-key {
+            color: #9cdcfe;
+        }
+
+        .json-string {
+            color: #ce9178;
+        }
+
+        .json-number {
+            color: #b5cea8;
+        }
+
+        .json-null {
+            color: #569cd6;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .info-box li {
+            margin-bottom: 5px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .example-queries {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .example-query {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .example-query:hover {
+            background: #e8e8e8;
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .example-query strong {
+            display: block;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .error-box {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            border-radius: 4px;
+            color: #c62828;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Parameter Extraction Tester</h1>
+            <p>Test LLM-based component extraction with schema-driven MasterParameterJSON</p>
+        </div>
+
+        <div class="content">
+            <div class="info-box">
+                <strong>📋 How to use:</strong>
+                <ul>
+                    <li>Type a natural language query about welding equipment</li>
+                    <li>Select the current state (which component you're selecting)</li>
+                    <li>Click "Extract Parameters" to see the LLM output</li>
+                    <li>Test incremental extraction by running multiple queries in sequence</li>
+                </ul>
+            </div>
+
+            <div class="test-section">
+                <h2>🎯 Test Input</h2>
+
+                <div class="form-group">
+                    <label for="userMessage">User Query:</label>
+                    <textarea id="userMessage" placeholder="e.g., 'I need a 500A power source for aluminum welding'"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="currentState">Current State:</label>
+                    <select id="currentState">
+                        <option value="power_source_selection">S1: Power Source Selection</option>
+                        <option value="feeder_selection">S2: Feeder Selection</option>
+                        <option value="cooler_selection">S3: Cooler Selection</option>
+                        <option value="interconnector_selection">S4: Interconnector Selection</option>
+                        <option value="torch_selection">S5: Torch Selection</option>
+                        <option value="accessories_selection">S6: Accessories Selection</option>
+                    </select>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="extractParameters()">🚀 Extract Parameters</button>
+                    <button class="btn-secondary" onclick="resetTest()">🔄 Reset Test</button>
+                </div>
+            </div>
+
+            <div class="test-section">
+                <h2>💡 Example Queries</h2>
+                <div class="example-queries">
+                    <div class="example-query" onclick="setQuery('I want Aristo 500ix for aluminum welding')">
+                        <strong>Explicit Product</strong>
+                        "I want Aristo 500ix for aluminum welding"
+                    </div>
+                    <div class="example-query" onclick="setQuery('500A power source')">
+                        <strong>Simple Request</strong>
+                        "500A power source"
+                    </div>
+                    <div class="example-query" onclick="setQuery('I need it for 6mm aluminum sheets')">
+                        <strong>Material/Thickness</strong>
+                        "I need it for 6mm aluminum sheets"
+                    </div>
+                    <div class="example-query" onclick="setQuery('Water cooled feeder with RobustFeed')">
+                        <strong>Component Feature</strong>
+                        "Water cooled feeder with RobustFeed"
+                    </div>
+                    <div class="example-query" onclick="setQuery('MIG welding process')">
+                        <strong>Process Type</strong>
+                        "MIG welding process"
+                    </div>
+                    <div class="example-query" onclick="setQuery('I also need Cool2 cooling unit')">
+                        <strong>Additional Info</strong>
+                        "I also need Cool2 cooling unit"
+                    </div>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Extracting parameters with LLM...</p>
+            </div>
+
+            <div class="output-section" id="outputSection" style="display: none;">
+                <div class="test-section">
+                    <h2>📤 LLM Extracted Output</h2>
+
+                    <div class="output-box">
+                        <h3>🔍 Extracted MasterParameterJSON</h3>
+                        <div class="json-output" id="extractedOutput"></div>
+                    </div>
+
+                    <div class="output-box">
+                        <h3>📊 Current Master Parameters (After Merge)</h3>
+                        <div class="json-output" id="mergedOutput"></div>
+                    </div>
+
+                    <div class="output-box">
+                        <h3>ℹ️ Extraction Details</h3>
+                        <div id="detailsOutput"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Store current master parameters to test merging
+        let masterParameters = {
+            power_source: {},
+            feeder: {},
+            cooler: {},
+            interconnector: {},
+            torch: {},
+            accessories: {}
+        };
+
+        function setQuery(query) {
+            document.getElementById('userMessage').value = query;
+        }
+
+        function resetTest() {
+            // Reset master parameters
+            masterParameters = {
+                power_source: {},
+                feeder: {},
+                cooler: {},
+                interconnector: {},
+                torch: {},
+                accessories: {}
+            };
+
+            // Clear inputs
+            document.getElementById('userMessage').value = '';
+            document.getElementById('currentState').value = 'power_source_selection';
+
+            // Hide output
+            document.getElementById('outputSection').style.display = 'none';
+
+            alert('✅ Test reset! Master parameters cleared.');
+        }
+
+        async function extractParameters() {
+            const userMessage = document.getElementById('userMessage').value.trim();
+            const currentState = document.getElementById('currentState').value;
+
+            if (!userMessage) {
+                alert('⚠️ Please enter a user query');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('outputSection').style.display = 'none';
+
+            try {
+                // Create session first
+                const sessionResponse = await fetch('http://localhost:8000/api/v1/configurator/message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: userMessage,
+                        session_id: null
+                    })
+                });
+
+                if (!sessionResponse.ok) {
+                    throw new Error(`HTTP error! status: ${sessionResponse.status}`);
+                }
+
+                const data = await sessionResponse.json();
+
+                // The backend returns the full conversation state
+                // Extract the master_parameters from the response
+                console.log('Full Response:', data);
+
+                // Update our local master parameters
+                if (data.master_parameters) {
+                    masterParameters = data.master_parameters;
+                }
+
+                // Display results
+                displayResults(data);
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('outputSection').innerHTML = `
+                    <div class="error-box">
+                        <strong>❌ Error:</strong> ${error.message}
+                        <br><br>
+                        Make sure the backend is running on port 8000
+                    </div>
+                `;
+                document.getElementById('outputSection').style.display = 'block';
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+
+        function displayResults(data) {
+            // Show the extracted parameters
+            const extractedOutput = document.getElementById('extractedOutput');
+            extractedOutput.innerHTML = syntaxHighlight(JSON.stringify(data.master_parameters || masterParameters, null, 2));
+
+            // Show the merged master parameters
+            const mergedOutput = document.getElementById('mergedOutput');
+            mergedOutput.innerHTML = syntaxHighlight(JSON.stringify(masterParameters, null, 2));
+
+            // Show details
+            const detailsOutput = document.getElementById('detailsOutput');
+            const componentCounts = Object.entries(masterParameters)
+                .filter(([key]) => key !== 'last_updated')
+                .map(([key, value]) => {
+                    const count = Object.keys(value || {}).length;
+                    return `<strong>${key}:</strong> ${count} parameters`;
+                });
+
+            detailsOutput.innerHTML = `
+                <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <p><strong>State:</strong> ${data.current_state || 'N/A'}</p>
+                    <p><strong>Message:</strong> ${data.message ? data.message.substring(0, 200) + '...' : 'N/A'}</p>
+                    <p><strong>Component Parameters:</strong></p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        ${componentCounts.map(c => `<li>${c}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+
+            // Show output section
+            document.getElementById('outputSection').style.display = 'block';
+
+            // Scroll to results
+            document.getElementById('outputSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function syntaxHighlight(json) {
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+    </script>
+</body>
+</html>

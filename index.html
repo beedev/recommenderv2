@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recommender V2 - S1→S7 Configurator Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        .main-panel, .cart-panel {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .status-bar {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #28a745;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 18px;
+            line-height: 1.5;
+        }
+
+        .message.assistant .message-bubble {
+            background: white;
+            border: 1px solid #e9ecef;
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message.user .message-avatar {
+            background: #6c757d;
+            color: white;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .product-card {
+            border: 2px solid #e9ecef;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .product-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .product-card h4 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .product-card p {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 4px;
+        }
+
+        .input-area {
+            padding: 20px 30px;
+            background: white;
+            border-top: 2px solid #e9ecef;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        #userInput {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #userInput:focus {
+            border-color: #667eea;
+        }
+
+        #sendBtn {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+
+        #sendBtn:hover {
+            transform: scale(1.05);
+        }
+
+        #sendBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Cart Panel Styles */
+        .cart-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .cart-content {
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .cart-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .cart-item h4 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .cart-item p {
+            font-size: 12px;
+            color: #6c757d;
+            margin: 4px 0;
+        }
+
+        .cart-item .category-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-top: 8px;
+        }
+
+        .cart-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+
+        .cart-summary {
+            border-top: 2px solid #e9ecef;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .cart-summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .cart-summary-item strong {
+            color: #667eea;
+        }
+
+        .finalize-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: transform 0.2s;
+        }
+
+        .finalize-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .finalize-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Main Chat Panel -->
+        <div class="main-panel">
+            <div class="header">
+                <h1>🔧 Recommender V2 - S1→S7 Configurator</h1>
+                <p>State-by-State Welding Equipment Configuration System</p>
+            </div>
+
+            <div class="status-bar">
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span>Connected to API</span>
+                </div>
+                <div id="currentState" style="font-weight: 600; color: #667eea;">
+                    S1: PowerSource Selection
+                </div>
+            </div>
+
+            <div class="chat-container" id="chatContainer">
+                <div class="message assistant">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-bubble">
+                        Welcome! I'll help you configure your welding equipment step-by-step (S1→S7).
+                        Let's start with selecting a Power Source. What are your welding requirements?
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-group">
+                    <input
+                        type="text"
+                        id="userInput"
+                        placeholder="Type your message... (e.g., 'I need 500A MIG welding')"
+                        onkeypress="if(event.key==='Enter') sendMessage()"
+                    >
+                    <button id="sendBtn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cart Panel -->
+        <div class="cart-panel">
+            <div class="cart-header">
+                🛒 Selected Products
+            </div>
+            <div class="cart-content" id="cartContent">
+                <div class="cart-empty">
+                    No products selected yet
+                </div>
+            </div>
+            <div class="cart-summary" id="cartSummary" style="display: none;">
+                <div class="cart-summary-item">
+                    <span>Total Components:</span>
+                    <strong id="totalComponents">0</strong>
+                </div>
+                <button class="finalize-btn" id="finalizeBtn" onclick="finalizeConfiguration()" disabled>
+                    Finalize Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8001/api/v1/configurator';
+        let sessionId = null;
+        let selectedProducts = {};
+        let responseJson = {};
+
+        function addMessage(text, isUser = false, products = null) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
+
+            let content = `
+                <div class="message-avatar">${isUser ? '👤' : '🤖'}</div>
+                <div class="message-bubble">
+                    ${text}
+            `;
+
+            if (products && products.length > 0) {
+                content += `
+                    <div class="products-grid">
+                        ${products.map(p => `
+                            <div class="product-card" onclick='selectProduct("${p.gin}", ${JSON.stringify(p).replace(/'/g, "\\'")})'>
+                                <h4>${p.name}</h4>
+                                <p><strong>GIN:</strong> ${p.gin}</p>
+                                <p><strong>Category:</strong> ${p.category}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            content += '</div>';
+            messageDiv.innerHTML = content;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function updateCart(newResponseJson) {
+            responseJson = newResponseJson || {};
+            const cartContent = document.getElementById('cartContent');
+            const cartSummary = document.getElementById('cartSummary');
+            const totalComponents = document.getElementById('totalComponents');
+            const finalizeBtn = document.getElementById('finalizeBtn');
+
+            // Count selected products
+            let count = 0;
+            let cartHTML = '';
+
+            // Add each component to cart
+            const components = ['PowerSource', 'Feeder', 'Cooler', 'Interconnector', 'Torch'];
+            components.forEach(component => {
+                if (responseJson[component]) {
+                    count++;
+                    const product = responseJson[component];
+                    cartHTML += `
+                        <div class="cart-item">
+                            <h4>${product.name}</h4>
+                            <p><strong>GIN:</strong> ${product.gin}</p>
+                            <span class="category-badge">${component}</span>
+                        </div>
+                    `;
+                }
+            });
+
+            // Add accessories
+            if (responseJson.Accessories && responseJson.Accessories.length > 0) {
+                responseJson.Accessories.forEach(acc => {
+                    count++;
+                    cartHTML += `
+                        <div class="cart-item">
+                            <h4>${acc.name}</h4>
+                            <p><strong>GIN:</strong> ${acc.gin}</p>
+                            <span class="category-badge">Accessory</span>
+                        </div>
+                    `;
+                });
+            }
+
+            if (count === 0) {
+                cartContent.innerHTML = '<div class="cart-empty">No products selected yet</div>';
+                cartSummary.style.display = 'none';
+            } else {
+                cartContent.innerHTML = cartHTML;
+                cartSummary.style.display = 'block';
+                totalComponents.textContent = count;
+
+                // Enable finalize button if we have at least PowerSource
+                finalizeBtn.disabled = !responseJson.PowerSource;
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            addMessage(message, true);
+            input.value = '';
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="loading"></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: message
+                    })
+                });
+
+                const data = await response.json();
+                sessionId = data.session_id;
+
+                // Update state
+                document.getElementById('currentState').textContent =
+                    `Current State: ${data.current_state.replace(/_/g, ' ').toUpperCase()}`;
+
+                // Update cart
+                updateCart(data.response_json);
+
+                // Add assistant response
+                addMessage(data.message, false, data.products);
+
+            } catch (error) {
+                addMessage('❌ Error connecting to server. Please check if the API is running on port 8001.', false);
+                console.error('Error:', error);
+            }
+
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send';
+        }
+
+        async function selectProduct(gin, productData) {
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="loading"></div>';
+
+            addMessage(`✅ Selected: ${productData.name} (GIN: ${gin})`, true);
+
+            try {
+                const response = await fetch(`${API_BASE}/select`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        product_gin: gin,
+                        product_data: productData
+                    })
+                });
+
+                const data = await response.json();
+
+                // Update state
+                document.getElementById('currentState').textContent =
+                    `Current State: ${data.current_state.replace(/_/g, ' ').toUpperCase()}`;
+
+                // Update cart
+                updateCart(data.response_json);
+
+                // Add assistant response
+                addMessage(data.message, false, data.products);
+
+            } catch (error) {
+                addMessage('❌ Error selecting product. Please try again.', false);
+                console.error('Error:', error);
+            }
+
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send';
+        }
+
+        async function finalizeConfiguration() {
+            addMessage('Finalizing configuration...', true);
+            // You can add finalization logic here
+            addMessage('✅ Configuration finalized! Your equipment setup is complete.', false);
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            console.log('Recommender V2 Test Interface Ready');
+            console.log('API Endpoint:', API_BASE);
+            console.log('Frontend URL: http://localhost:3001');
+        };
+    </script>
+</body>
+</html>

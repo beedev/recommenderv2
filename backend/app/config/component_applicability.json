@@ -1,0 +1,141 @@
+{
+  "version": "1.0",
+  "description": "Component applicability configuration for power sources. Defines which components (Y=Required, N=Not Applicable) are needed for each power source.",
+  "validation_rules": {
+    "min_real_components": 3,
+    "valid_applicability_values": ["Y", "N"],
+    "required_components": ["Feeder", "Cooler", "Interconnector", "Torch", "Accessories"]
+  },
+  "default_policy": {
+    "description": "Default applicability when power source not found in database",
+    "applicability": {
+      "Feeder": "Y",
+      "Cooler": "Y",
+      "Interconnector": "Y",
+      "Torch": "Y",
+      "Accessories": "Y"
+    }
+  },
+  "power_sources": {
+    "0446200880": {
+      "name": "Aristo 500ix",
+      "category": "Power Source",
+      "description": "500A Multi-Process Power Source",
+      "applicability": {
+        "Feeder": "Y",
+        "Cooler": "Y",
+        "Interconnector": "Y",
+        "Torch": "Y",
+        "Accessories": "Y"
+      }
+    },
+    "0445250880": {
+      "name": "Renegade ES 300i",
+      "category": "Power Source",
+      "description": "300A Engine-Driven Welder/Generator",
+      "applicability": {
+        "Feeder": "N",
+        "Cooler": "N",
+        "Interconnector": "N",
+        "Torch": "Y",
+        "Accessories": "Y"
+      }
+    },
+    "0445200880": {
+      "name": "Warrior 500i",
+      "category": "Power Source",
+      "description": "500A Engine-Driven Welder/Generator",
+      "applicability": {
+        "Feeder": "Y",
+        "Cooler": "Y",
+        "Interconnector": "Y",
+        "Torch": "Y",
+        "Accessories": "Y"
+      }
+    },
+    "0445220880": {
+      "name": "Warrior 400i",
+      "category": "Power Source",
+      "description": "400A Engine-Driven Welder/Generator",
+      "applicability": {
+        "Feeder": "Y",
+        "Cooler": "Y",
+        "Interconnector": "Y",
+        "Torch": "Y",
+        "Accessories": "Y"
+      }
+    },
+    "0445160880": {
+      "name": "Trailblazer 325",
+      "category": "Power Source",
+      "description": "325A Engine-Driven Welder/Generator",
+      "applicability": {
+        "Feeder": "N",
+        "Cooler": "N",
+        "Interconnector": "N",
+        "Torch": "Y",
+        "Accessories": "Y"
+      }
+    },
+    "0445180880": {
+      "name": "Big Blue 500i",
+      "category": "Power Source",
+      "description": "500A Engine-Driven Welder/Generator",
+      "applicability": {
+        "Feeder": "Y",
+        "Cooler": "Y",
+        "Interconnector": "Y",
+        "Torch": "Y",
+        "Accessories": "Y"
+      }
+    },
+    "0446000880": {
+      "name": "Dynasty 400",
+      "category": "Power Source",
+      "description": "400A AC/DC TIG Welder",
+      "applicability": {
+        "Feeder": "N",
+        "Cooler": "Y",
+        "Interconnector": "N",
+        "Torch": "Y",
+        "Accessories": "Y"
+      }
+    },
+    "0446020880": {
+      "name": "Dynasty 350",
+      "category": "Power Source",
+      "description": "350A AC/DC TIG Welder",
+      "applicability": {
+        "Feeder": "N",
+        "Cooler": "Y",
+        "Interconnector": "N",
+        "Torch": "Y",
+        "Accessories": "Y"
+      }
+    },
+    "0446040880": {
+      "name": "Dynasty 280 DX",
+      "category": "Power Source",
+      "description": "280A AC/DC TIG Welder",
+      "applicability": {
+        "Feeder": "N",
+        "Cooler": "Y",
+        "Interconnector": "N",
+        "Torch": "Y",
+        "Accessories": "Y"
+      }
+    },
+    "0446120880": {
+      "name": "Maxstar 400 SD",
+      "category": "Power Source",
+      "description": "400A Stick/TIG Welder",
+      "applicability": {
+        "Feeder": "N",
+        "Cooler": "N",
+        "Interconnector": "N",
+        "Torch": "Y",
+        "Accessories": "Y"
+      }
+    }
+  }
+}

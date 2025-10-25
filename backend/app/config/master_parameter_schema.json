@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "description": "Master parameter schema - defines all components and their features",
+  "components": {
+    "power_source": {
+      "description": "Power source requirements",
+      "features": [
+        "product_name",
+        "portability",
+        "process",
+        "current_output",
+        "voltage",
+        "material",
+        "application",
+        "environment",
+        "duty_cycle"
+      ]
+    },
+    "feeder": {
+      "description": "Wire feeder requirements",
+      "features": [
+        "product_name",
+        "process",
+        "material",
+        "thickness",
+        "cooling_type",
+        "wire_diameter"
+      ]
+    },
+    "cooler": {
+      "description": "Cooling unit requirements",
+      "features": [
+        "product_name",
+        "duty_cycle",
+        "application",
+        "environment",
+        "cooling_capacity"
+      ]
+    },
+    "interconnector": {
+      "description": "Interconnector cable requirements",
+      "features": [
+        "cable_length",
+        "current_rating",
+        "cooling_type",
+        "cross_section"
+      ]
+    },
+    "torch": {
+      "description": "Torch requirements",
+      "features": [
+        "process",
+        "current_rating",
+        "cooling_type",
+        "swan_neck_angle"
+      ]
+    },
+    "accessories": {
+      "description": "Accessory requirements",
+      "features": [
+        "accessory_type",
+        "compatibility",
+        "cable_length",
+        "remote_control_features"
+      ]
+    }
+  },
+  "product_name_enabled_components": [
+    "power_source",
+    "feeder",
+    "cooler"
+  ]
+}
