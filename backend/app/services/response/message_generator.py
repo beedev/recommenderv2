@@ -81,7 +81,10 @@ class MessageGenerator:
         # Add selection instruction
         message += f"\n✅ To select a {component_name}, please provide:"
         message += "\n- Product name or GIN"
-        message += "\n- Or say 'skip' if not needed"
+
+        # PowerSource cannot be skipped
+        if current_state != "power_source_selection":
+            message += "\n- Or say 'skip' if not needed"
 
         return message
 
@@ -141,12 +144,36 @@ This is a required step - I'll help you find the right power source.
         """Prompt for S2: Feeder"""
 
         power_source = response_json.get("PowerSource", {})
+        feeder_params = master_parameters.get("feeder", {})
+        product_name = feeder_params.get("product_name")
+        cooling_type = feeder_params.get("cooling_type")
 
-        return f"""
+        base_prompt = f"""
 🔌 **Step 2: Wire Feeder Selection**
 
 Based on your selected power source: **{power_source.get('name', 'Unknown')}**
+"""
 
+        if product_name or cooling_type:
+            # User already mentioned feeder details
+            details = []
+            if product_name:
+                details.append(f"Product: **{product_name}**")
+            if cooling_type:
+                details.append(f"Cooling: {cooling_type}")
+
+            details_str = ", ".join(details)
+
+            return f"""{base_prompt}
+I see you mentioned: {details_str}
+
+Would you like to:
+- Confirm this feeder (just say the product name again or 'yes')
+- Add more requirements (portability, wire feed speed, etc.)
+- Or say **'skip'** if not needed
+"""
+        else:
+            return f"""{base_prompt}
 Do you need a wire feeder?
 - Provide requirements (portability, wire feed speed, etc.)
 - Or say **'skip'** if not needed
@@ -159,9 +186,24 @@ Do you need a wire feeder?
     ) -> str:
         """Prompt for S3: Cooler"""
 
-        return """
-❄️ **Step 3: Cooling System Selection**
+        cooler_params = master_parameters.get("cooler", {})
+        product_name = cooler_params.get("product_name")
 
+        base_prompt = """
+❄️ **Step 3: Cooling System Selection**
+"""
+
+        if product_name:
+            return f"""{base_prompt}
+I see you mentioned: Product: **{product_name}**
+
+Would you like to:
+- Confirm this cooler (just say the product name again or 'yes')
+- Add more requirements (duty cycle, flow rate, etc.)
+- Or say **'skip'** if not needed
+"""
+        else:
+            return f"""{base_prompt}
 Do you need a cooling system?
 - Specify cooling requirements (duty cycle, flow rate, etc.)
 - Or say **'skip'** if not needed
@@ -221,30 +263,45 @@ Or say **'done'** to finalize your configuration.
         master_parameters: Dict[str, Any],
         response_json: Dict[str, Any]
     ) -> str:
-        """Prompt for S7: Finalize"""
+        """Prompt for S7: Finalize - Display clean JSON with GIN, name, description only"""
 
-        # Count selected components
-        selected_components = [k for k, v in response_json.items() if v and k != "session_id"]
+        import json
 
-        summary = "📋 **Configuration Summary:**\n\n"
+        # Build clean JSON structure with only GIN, name, description
+        clean_config = {}
 
         for component_type, component_data in response_json.items():
-            if component_type == "session_id":
+            if component_type == "session_id" or not component_data:
                 continue
 
-            if component_data:
-                summary += f"- **{component_type}**: {component_data.get('name', 'Selected')}\n"
+            # Handle Accessories (list) vs single components (dict)
+            if component_type == "Accessories" and isinstance(component_data, list):
+                # List of accessories - extract GIN, name, description from each
+                clean_config[component_type] = [
+                    {
+                        "gin": acc.get("gin"),
+                        "name": acc.get("name"),
+                        "description": acc.get("description")
+                    }
+                    for acc in component_data
+                ]
+            elif isinstance(component_data, dict):
+                # Single component - extract GIN, name, description
+                clean_config[component_type] = {
+                    "gin": component_data.get("gin"),
+                    "name": component_data.get("name"),
+                    "description": component_data.get("description")
+                }
 
-        summary += f"\n✅ Total components selected: {len(selected_components)}\n"
+        # Format as pretty JSON
+        json_str = json.dumps(clean_config, indent=2)
 
-        if len(selected_components) >= 3:
-            summary += "\n✨ Your configuration is ready! Would you like to:"
-            summary += "\n1. Review component details"
-            summary += "\n2. Make changes"
-            summary += "\n3. Confirm and generate packages"
-        else:
-            summary += f"\n⚠️ Minimum 3 components required (currently: {len(selected_components)})"
-            summary += "\nPlease add more components to complete your configuration."
+        summary = "📋 **Final Configuration:**\n\n```json\n" + json_str + "\n```"
+
+        summary += "\n\n✨ Your configuration is ready! Would you like to:"
+        summary += "\n1. Review component details"
+        summary += "\n2. Make changes"
+        summary += "\n3. Confirm and generate packages"
 
         return summary
 

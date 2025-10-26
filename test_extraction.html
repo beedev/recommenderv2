@@ -406,7 +406,7 @@
 
             try {
                 // Create session first
-                const sessionResponse = await fetch('http://localhost:8000/api/v1/configurator/message', {
+                const sessionResponse = await fetch('http://localhost:8001/api/v1/configurator/message', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -441,7 +441,7 @@
                     <div class="error-box">
                         <strong>❌ Error:</strong> ${error.message}
                         <br><br>
-                        Make sure the backend is running on port 8000
+                        Make sure the backend is running on port 8001
                     </div>
                 `;
                 document.getElementById('outputSection').style.display = 'block';

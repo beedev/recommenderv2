@@ -10,6 +10,7 @@ import json
 import os
 from typing import Dict, List, Optional, Any
 from openai import AsyncOpenAI
+from langsmith import traceable
 import sys
 
 # Add config path for schema loader
@@ -59,6 +60,7 @@ class ParameterExtractor:
             logger.warning(f"Could not load product names: {e}")
             return {"power_source": [], "feeder": [], "cooler": []}
 
+    @traceable(name="extract_parameters", run_type="llm")
     async def extract_parameters(
         self,
         user_message: str,

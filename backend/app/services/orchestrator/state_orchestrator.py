@@ -152,10 +152,10 @@ class StateByStateOrchestrator:
         logger.info(f"Checking for explicit power source product name: {explicit_name}")
 
         if explicit_name:
-            # Try to find the exact product by name
+            # Try to find matching products
             logger.info(f"User explicitly requested product: {explicit_name}")
 
-            matching_product = None
+            matching_products = []
             for product in search_results.products:
                 # Normalize both names: remove spaces, lowercase
                 normalized_explicit = explicit_name.lower().replace(" ", "")
@@ -163,14 +163,14 @@ class StateByStateOrchestrator:
 
                 # Check if either contains the other (flexible matching)
                 if normalized_explicit in normalized_product or normalized_product in normalized_explicit:
-                    matching_product = product
+                    matching_products.append(product)
                     logger.info(f"Found matching product: {product.name} (GIN: {product.gin})")
-                    break
 
-            if not matching_product:
-                logger.warning(f"No product found matching '{explicit_name}' among {len(search_results.products)} products")
+            # If exactly ONE match, auto-select it
+            if len(matching_products) == 1:
+                matching_product = matching_products[0]
+                logger.info(f"Single exact match found - auto-selecting: {matching_product.name}")
 
-            if matching_product:
                 # Auto-select the explicitly mentioned product
                 from ...models.conversation import SelectedProduct
                 selected_product = SelectedProduct(
@@ -218,6 +218,15 @@ class StateByStateOrchestrator:
                     "auto_selected": True
                 }
 
+            # If MULTIPLE matches found, show all options to user for selection
+            elif len(matching_products) > 1:
+                logger.info(f"Multiple matches found ({len(matching_products)}) - showing all options to user")
+                # Fall through to show all search results
+
+            # If NO matches found, also fall through to show all search results
+            else:
+                logger.warning(f"No exact match found for '{explicit_name}' - showing all available options")
+
         # Agent 3: Generate results message (no explicit product or not found)
         message = self.message_generator.generate_search_results_message(
             ConfiguratorState.POWER_SOURCE_SELECTION.value,
@@ -242,6 +251,16 @@ class StateByStateOrchestrator:
         Includes product name validation for Feeder and Cooler
         """
 
+        # Check if product name was already specified in initial compound request
+        # (before we even search for products)
+        master_params_dict = conversation_state.master_parameters.dict()
+        component_key = component_type.lower()
+        component_dict = master_params_dict.get(component_key, {})
+        pre_existing_name = component_dict.get("product_name")
+
+        if pre_existing_name:
+            logger.info(f"Found pre-existing {component_type} product name from compound request: {pre_existing_name}")
+
         # Map component type to search method
         search_methods = {
             "Feeder": self.product_search.search_feeder,
@@ -254,11 +273,14 @@ class StateByStateOrchestrator:
         if not search_method:
             raise ValueError(f"Unknown component type: {component_type}")
 
+        # Log response_json for debugging
+        serialized_response = self._serialize_response_json(conversation_state)
+        logger.info(f"response_json before {component_type} search: {serialized_response}")
+
         # Agent 2: Search for compatible products
-        master_params_dict = conversation_state.master_parameters.dict()
         search_results = await search_method(
             master_params_dict,
-            self._serialize_response_json(conversation_state)
+            serialized_response
         )
 
         if not search_results.products:
@@ -272,26 +294,29 @@ class StateByStateOrchestrator:
                 "products": []
             }
 
-        # Check for explicit product name (Feeder and Cooler only)
-        component_key = component_type.lower()
-        component_dict = master_params_dict.get(component_key, {})
-        explicit_name = component_dict.get("product_name")
+        # Use pre-existing product name if it exists (from compound request)
+        # This handles cases where user says "I want Aristo 500 with RobustFeed and Cool2"
+        # The feeder/cooler names are preserved in master_parameters across state transitions
+        explicit_name = pre_existing_name
 
         if explicit_name:
             logger.info(f"User explicitly requested {component_type}: {explicit_name}")
 
-            # Try to find matching product
-            matching_product = None
+            # Try to find matching products
+            matching_products = []
             for product in search_results.products:
                 normalized_explicit = explicit_name.lower().replace(" ", "")
                 normalized_product = product.name.lower().replace(" ", "")
 
                 if normalized_explicit in normalized_product or normalized_product in normalized_explicit:
-                    matching_product = product
+                    matching_products.append(product)
                     logger.info(f"Found matching {component_type}: {product.name} (GIN: {product.gin})")
-                    break
 
-            if matching_product:
+            # If exactly ONE match, auto-select it
+            if len(matching_products) == 1:
+                matching_product = matching_products[0]
+                logger.info(f"Single exact match found - auto-selecting: {matching_product.name}")
+
                 # Auto-select the explicitly mentioned product
                 selected_product = SelectedProduct(
                     gin=matching_product.gin,
@@ -333,6 +358,15 @@ class StateByStateOrchestrator:
                     "product_selected": True,
                     "auto_selected": True
                 }
+
+            # If MULTIPLE matches found, show all options to user for selection
+            elif len(matching_products) > 1:
+                logger.info(f"Multiple matches found ({len(matching_products)}) - showing all options to user")
+                # Fall through to show all search results
+
+            # If NO matches found, also fall through to show all search results
+            else:
+                logger.warning(f"No exact match found for '{explicit_name}' - showing all available options")
 
         # Agent 3: Generate results message (no explicit product or not found)
         message = self.message_generator.generate_search_results_message(
@@ -394,11 +428,11 @@ class StateByStateOrchestrator:
         S7: Finalize Configuration
         """
 
-        # Check if can finalize (≥3 components)
+        # Check if can finalize (PowerSource required)
         if not conversation_state.can_finalize():
             message = self.message_generator.generate_error_message(
                 "invalid_selection",
-                "Minimum 3 components required. Please add more components."
+                "PowerSource is required. Please select a power source first."
             )
             return {
                 "message": message,
@@ -426,10 +460,11 @@ class StateByStateOrchestrator:
     ) -> Dict[str, Any]:
         """Handle 'skip' command - move to next state"""
 
-        # Cannot skip PowerSource
+        # Cannot skip PowerSource - it's mandatory
         if conversation_state.current_state == ConfiguratorState.POWER_SOURCE_SELECTION:
             message = self.message_generator.generate_error_message(
-                "power_source_required"
+                "power_source_required",
+                "PowerSource selection is mandatory and cannot be skipped."
             )
             return {
                 "message": message,
@@ -510,7 +545,24 @@ class StateByStateOrchestrator:
             selected_product.gin
         )
 
-        # Move to next state
+        # Generate current configuration summary
+        config_summary = self._generate_config_summary(conversation_state)
+
+        # For Accessories, allow multiple selections - stay in current state
+        if conversation_state.current_state == ConfiguratorState.ACCESSORIES_SELECTION:
+            message = f"{confirmation}\n\n{config_summary}\n\n"
+            message += "Would you like to:\n"
+            message += "- Add another accessory (select from the list above)\n"
+            message += "- Say 'done' to finalize your configuration"
+
+            return {
+                "message": message,
+                "current_state": conversation_state.current_state.value,
+                "product_selected": True,
+                "stay_in_state": True  # Flag to indicate we're staying in accessories
+            }
+
+        # For other components, move to next state
         next_state = conversation_state.get_next_state()
         if next_state:
             conversation_state.current_state = next_state
@@ -522,9 +574,9 @@ class StateByStateOrchestrator:
                 self._serialize_response_json(conversation_state)
             )
 
-            message = f"{confirmation}\n\n{next_prompt}"
+            message = f"{confirmation}\n\n{config_summary}\n\n{next_prompt}"
         else:
-            message = confirmation
+            message = f"{confirmation}\n\n{config_summary}"
 
         return {
             "message": message,
@@ -590,3 +642,39 @@ class StateByStateOrchestrator:
             response_dict["Accessories"] = [a.dict() for a in conversation_state.response_json.Accessories]
 
         return response_dict
+
+    def _generate_config_summary(self, conversation_state: ConversationState) -> str:
+        """Generate current configuration summary for display in chat"""
+
+        summary = "📋 **Current Configuration:**\n\n"
+
+        # PowerSource - always show
+        if conversation_state.response_json.PowerSource:
+            ps = conversation_state.response_json.PowerSource
+            summary += f"✅ **PowerSource**: {ps.name} (GIN: {ps.gin})\n"
+
+        # Only show other components if they've been selected (not None)
+        # This prevents showing "Skipped" for components not yet encountered
+
+        if conversation_state.response_json.Feeder:
+            feeder = conversation_state.response_json.Feeder
+            summary += f"✅ **Feeder**: {feeder.name} (GIN: {feeder.gin})\n"
+
+        if conversation_state.response_json.Cooler:
+            cooler = conversation_state.response_json.Cooler
+            summary += f"✅ **Cooler**: {cooler.name} (GIN: {cooler.gin})\n"
+
+        if conversation_state.response_json.Interconnector:
+            ic = conversation_state.response_json.Interconnector
+            summary += f"✅ **Interconnector**: {ic.name} (GIN: {ic.gin})\n"
+
+        if conversation_state.response_json.Torch:
+            torch = conversation_state.response_json.Torch
+            summary += f"✅ **Torch**: {torch.name} (GIN: {torch.gin})\n"
+
+        if conversation_state.response_json.Accessories:
+            summary += f"✅ **Accessories** ({len(conversation_state.response_json.Accessories)}):\n"
+            for acc in conversation_state.response_json.Accessories:
+                summary += f"   • {acc.name} (GIN: {acc.gin})\n"
+
+        return summary

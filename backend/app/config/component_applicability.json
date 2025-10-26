@@ -37,7 +37,7 @@
         "Feeder": "N",
         "Cooler": "N",
         "Interconnector": "N",
-        "Torch": "Y",
+        "Torch": "N",
         "Accessories": "Y"
       }
     },

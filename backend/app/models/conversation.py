@@ -287,24 +287,11 @@ class ConversationState(BaseModel):
         return ConfiguratorState.FINALIZE
 
     def can_finalize(self) -> bool:
-        """Check if configuration can be finalized (≥3 real components)"""
+        """Check if configuration can be finalized (at least PowerSource required)"""
 
-        real_components = 0
-
-        if self.response_json.PowerSource:
-            real_components += 1
-        if self.response_json.Feeder:
-            real_components += 1
-        if self.response_json.Cooler:
-            real_components += 1
-        if self.response_json.Interconnector:
-            real_components += 1
-        if self.response_json.Torch:
-            real_components += 1
-
-        real_components += len(self.response_json.Accessories)
-
-        return real_components >= 3
+        # Minimum requirement: PowerSource must be selected
+        # Renegade workflow allows PowerSource + Accessories (no 3-component minimum)
+        return self.response_json.PowerSource is not None
 
     class Config:
         json_schema_extra = {

@@ -17,6 +17,19 @@ from .services.neo4j.product_search import Neo4jProductSearch
 from .services.response.message_generator import MessageGenerator
 from .services.orchestrator.state_orchestrator import StateByStateOrchestrator
 
+# Database and LangGraph imports
+from .database.database import (
+    init_redis,
+    init_postgresql,
+    close_redis,
+    close_postgresql,
+    get_redis_client,
+    Base
+)
+from .database.redis_session_storage import init_redis_session_storage
+from .database.postgres_archival import postgres_archival_service
+from .services.observability.langsmith_service import get_langsmith_service
+
 # Load environment variables
 load_dotenv()
 
@@ -53,6 +66,45 @@ async def lifespan(app: FastAPI):
     if not all([openai_api_key, neo4j_uri, neo4j_username, neo4j_password]):
         raise ValueError("Missing required environment variables")
 
+    # Initialize databases
+    logger.info("Initializing databases...")
+
+    try:
+        # Initialize Redis for hot session data
+        await init_redis()
+        logger.info("✓ Redis initialized")
+
+        # Initialize Redis session storage
+        redis_client = await get_redis_client()
+        init_redis_session_storage(redis_client, ttl=3600)
+        logger.info("✓ Redis session storage initialized")
+    except Exception as e:
+        logger.warning(f"Redis initialization failed: {e}. Continuing without Redis caching.")
+
+    try:
+        # Initialize PostgreSQL for archival
+        init_postgresql()
+        logger.info("✓ PostgreSQL initialized")
+
+        # Create database tables
+        from sqlalchemy.ext.asyncio import create_async_engine
+        from .database.database import postgresql_manager
+
+        async with postgresql_manager.engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        logger.info("✓ Database tables created/verified")
+
+    except Exception as e:
+        logger.warning(f"PostgreSQL initialization failed: {e}. Continuing without archival.")
+
+    # Initialize LangSmith observability
+    langsmith_service = get_langsmith_service()
+    if langsmith_service.is_enabled():
+        logger.info("✓ LangSmith observability enabled")
+    else:
+        logger.info("LangSmith observability disabled")
+
     # Load component applicability config
     config_path = os.path.join(
         os.path.dirname(__file__),
@@ -85,8 +137,23 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down Recommender_v2 application...")
 
+    # Close databases
+    try:
+        await close_redis()
+        logger.info("✓ Redis closed")
+    except Exception as e:
+        logger.error(f"Error closing Redis: {e}")
+
+    try:
+        await close_postgresql()
+        logger.info("✓ PostgreSQL closed")
+    except Exception as e:
+        logger.error(f"Error closing PostgreSQL: {e}")
+
+    # Close Neo4j
     if neo4j_search:
         await neo4j_search.close()
+        logger.info("✓ Neo4j closed")
 
     logger.info("Shutdown complete")
 
@@ -141,19 +208,32 @@ async def root():
 async def health_check():
     """Health check endpoint"""
 
+    from .database.database import redis_manager, postgresql_manager
+
+    langsmith_service = get_langsmith_service()
+
     health_status = {
         "status": "healthy",
         "services": {
             "parameter_extractor": parameter_extractor is not None,
             "neo4j_search": neo4j_search is not None,
             "message_generator": message_generator is not None,
-            "orchestrator": orchestrator is not None
+            "orchestrator": orchestrator is not None,
+            "redis": redis_manager._initialized,
+            "postgresql": postgresql_manager._initialized,
+            "langsmith": langsmith_service.is_enabled()
         }
     }
 
-    all_healthy = all(health_status["services"].values())
+    # Core services must be healthy
+    core_services_healthy = all([
+        health_status["services"]["parameter_extractor"],
+        health_status["services"]["neo4j_search"],
+        health_status["services"]["message_generator"],
+        health_status["services"]["orchestrator"]
+    ])
 
-    if not all_healthy:
+    if not core_services_healthy:
         health_status["status"] = "unhealthy"
 
     return health_status
