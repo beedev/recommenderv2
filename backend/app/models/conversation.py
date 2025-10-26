@@ -166,6 +166,10 @@ class ConversationState(BaseModel):
     # Conversation History
     conversation_history: List[Dict[str, str]] = Field(default_factory=list)
 
+    # User Language Preference (ISO 639-1 language code)
+    # Supported: en, es, fr, de, pt, it, sv
+    language: str = "en"
+
     # Metadata
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_updated: datetime = Field(default_factory=datetime.utcnow)

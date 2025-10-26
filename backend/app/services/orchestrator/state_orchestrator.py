@@ -136,9 +136,9 @@ class StateByStateOrchestrator:
 
         if not search_results.products:
             # No results - prompt user for more information
-            message = self.message_generator.generate_error_message(
-                "power_source_required",
-                "Please provide more details about your welding requirements."
+            message = await self.message_generator.generate_no_results_message(
+                ConfiguratorState.POWER_SOURCE_SELECTION.value,
+                conversation_state.language
             )
             return {
                 "message": message,
@@ -201,10 +201,11 @@ class StateByStateOrchestrator:
                     conversation_state.current_state = next_state
 
                     # Generate prompt for next state
-                    next_prompt = self.message_generator.generate_state_prompt(
+                    next_prompt = await self.message_generator.generate_state_prompt(
                         next_state.value,
                         conversation_state.master_parameters.dict(),
-                        self._serialize_response_json(conversation_state)
+                        self._serialize_response_json(conversation_state),
+                        conversation_state.language
                     )
 
                     message = f"{confirmation}\n\n{next_prompt}"
@@ -228,10 +229,11 @@ class StateByStateOrchestrator:
                 logger.warning(f"No exact match found for '{explicit_name}' - showing all available options")
 
         # Agent 3: Generate results message (no explicit product or not found)
-        message = self.message_generator.generate_search_results_message(
+        message = await self.message_generator.generate_search_results_message(
             ConfiguratorState.POWER_SOURCE_SELECTION.value,
             search_results,
-            conversation_state.master_parameters.dict()
+            conversation_state.master_parameters.dict(),
+            conversation_state.language
         )
 
         return {
@@ -342,10 +344,11 @@ class StateByStateOrchestrator:
                     conversation_state.current_state = next_state
 
                     # Generate prompt for next state
-                    next_prompt = self.message_generator.generate_state_prompt(
+                    next_prompt = await self.message_generator.generate_state_prompt(
                         next_state.value,
                         conversation_state.master_parameters.dict(),
-                        self._serialize_response_json(conversation_state)
+                        self._serialize_response_json(conversation_state),
+                        conversation_state.language
                     )
 
                     message = f"{confirmation}\n\n{next_prompt}"
@@ -369,10 +372,11 @@ class StateByStateOrchestrator:
                 logger.warning(f"No exact match found for '{explicit_name}' - showing all available options")
 
         # Agent 3: Generate results message (no explicit product or not found)
-        message = self.message_generator.generate_search_results_message(
+        message = await self.message_generator.generate_search_results_message(
             conversation_state.current_state.value,
             search_results,
-            conversation_state.master_parameters.dict()
+            conversation_state.master_parameters.dict(),
+            conversation_state.language
         )
 
         return {
@@ -441,10 +445,11 @@ class StateByStateOrchestrator:
             }
 
         # Generate finalization message
-        message = self.message_generator.generate_state_prompt(
+        message = await self.message_generator.generate_state_prompt(
             ConfiguratorState.FINALIZE.value,
             conversation_state.master_parameters.dict(),
-            self._serialize_response_json(conversation_state)
+            self._serialize_response_json(conversation_state),
+            conversation_state.language
         )
 
         return {
@@ -481,10 +486,11 @@ class StateByStateOrchestrator:
             conversation_state.current_state = next_state
 
             # Generate prompt for next state
-            next_prompt = self.message_generator.generate_state_prompt(
+            next_prompt = await self.message_generator.generate_state_prompt(
                 next_state.value,
                 conversation_state.master_parameters.dict(),
-                self._serialize_response_json(conversation_state)
+                self._serialize_response_json(conversation_state),
+                conversation_state.language
             )
 
             message = f"{confirmation}\n\n{next_prompt}"
@@ -508,7 +514,7 @@ class StateByStateOrchestrator:
 
         return await self._process_finalize(conversation_state)
 
-    def select_product(
+    async def select_product(
         self,
         conversation_state: ConversationState,
         product_gin: str,
@@ -568,10 +574,11 @@ class StateByStateOrchestrator:
             conversation_state.current_state = next_state
 
             # Generate prompt for next state
-            next_prompt = self.message_generator.generate_state_prompt(
+            next_prompt = await self.message_generator.generate_state_prompt(
                 next_state.value,
                 conversation_state.master_parameters.dict(),
-                self._serialize_response_json(conversation_state)
+                self._serialize_response_json(conversation_state),
+                conversation_state.language
             )
 
             message = f"{confirmation}\n\n{config_summary}\n\n{next_prompt}"

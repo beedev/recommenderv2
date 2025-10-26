@@ -57,6 +57,27 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .language-selector select {
+            padding: 8px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .language-selector select:hover {
+            border-color: #667eea;
+        }
+
+        .language-selector select:focus {
+            outline: none;
+            border-color: #667eea;
         }
 
         .status-indicator {
@@ -333,6 +354,17 @@
                     <div class="status-dot"></div>
                     <span>Connected to API</span>
                 </div>
+                <div class="language-selector">
+                    <select id="languageSelect" onchange="changeLanguage()">
+                        <option value="en">🇬🇧 English</option>
+                        <option value="es">🇪🇸 Español</option>
+                        <option value="fr">🇫🇷 Français</option>
+                        <option value="de">🇩🇪 Deutsch</option>
+                        <option value="pt">🇵🇹 Português</option>
+                        <option value="it">🇮🇹 Italiano</option>
+                        <option value="sv">🇸🇪 Svenska</option>
+                    </select>
+                </div>
                 <div id="currentState" style="font-weight: 600; color: #667eea;">
                     S1: PowerSource Selection
                 </div>
@@ -388,18 +420,205 @@
         let sessionId = null;
         let selectedProducts = {};
         let responseJson = {};
+        let currentLanguage = 'en';  // Default language
+
+        // I18n Translation Dictionary
+        const translations = {
+            en: {
+                pageTitle: '🔧 Recommender V2 - S1→S7 Configurator',
+                pageSubtitle: 'State-by-State Welding Equipment Configuration System',
+                connectedStatus: 'Connected to API',
+                currentStateLabel: 'Current State',
+                cartHeader: '🛒 Selected Products',
+                cartEmpty: 'No products selected yet',
+                totalComponents: 'Total Components:',
+                finalizeBtn: 'Finalize Configuration',
+                inputPlaceholder: 'Type your message... (e.g., "I need 500A MIG welding")',
+                sendBtn: 'Send',
+                welcomeMessage: 'Welcome! I\'ll help you configure your welding equipment step-by-step (S1→S7). Let\'s start with selecting a Power Source. What are your welding requirements?',
+                languageChanged: 'Language changed to',
+                newMessagesIn: 'New messages will be in this language.'
+            },
+            es: {
+                pageTitle: '🔧 Recomendador V2 - Configurador S1→S7',
+                pageSubtitle: 'Sistema de Configuración de Equipos de Soldadura Paso a Paso',
+                connectedStatus: 'Conectado a la API',
+                currentStateLabel: 'Estado Actual',
+                cartHeader: '🛒 Productos Seleccionados',
+                cartEmpty: 'Aún no se han seleccionado productos',
+                totalComponents: 'Total de Componentes:',
+                finalizeBtn: 'Finalizar Configuración',
+                inputPlaceholder: 'Escriba su mensaje... (por ejemplo, "Necesito soldadura MIG de 500A")',
+                sendBtn: 'Enviar',
+                welcomeMessage: '¡Bienvenido! Te ayudaré a configurar tu equipo de soldadura paso a paso (S1→S7). Comencemos seleccionando una Fuente de Alimentación. ¿Cuáles son tus requisitos de soldadura?',
+                languageChanged: 'Idioma cambiado a',
+                newMessagesIn: 'Los nuevos mensajes estarán en este idioma.'
+            },
+            fr: {
+                pageTitle: '🔧 Recommandeur V2 - Configurateur S1→S7',
+                pageSubtitle: 'Système de Configuration d\'Équipement de Soudage Étape par Étape',
+                connectedStatus: 'Connecté à l\'API',
+                currentStateLabel: 'État Actuel',
+                cartHeader: '🛒 Produits Sélectionnés',
+                cartEmpty: 'Aucun produit sélectionné pour le moment',
+                totalComponents: 'Total des Composants:',
+                finalizeBtn: 'Finaliser la Configuration',
+                inputPlaceholder: 'Tapez votre message... (par exemple, "J\'ai besoin de soudage MIG 500A")',
+                sendBtn: 'Envoyer',
+                welcomeMessage: 'Bienvenue! Je vous aiderai à configurer votre équipement de soudage étape par étape (S1→S7). Commençons par sélectionner une Source d\'Alimentation. Quelles sont vos exigences de soudage?',
+                languageChanged: 'Langue changée en',
+                newMessagesIn: 'Les nouveaux messages seront dans cette langue.'
+            },
+            de: {
+                pageTitle: '🔧 Empfehler V2 - S1→S7 Konfigurator',
+                pageSubtitle: 'Schritt-für-Schritt Schweißgeräte-Konfigurationssystem',
+                connectedStatus: 'Mit API verbunden',
+                currentStateLabel: 'Aktueller Status',
+                cartHeader: '🛒 Ausgewählte Produkte',
+                cartEmpty: 'Noch keine Produkte ausgewählt',
+                totalComponents: 'Gesamtkomponenten:',
+                finalizeBtn: 'Konfiguration Abschließen',
+                inputPlaceholder: 'Geben Sie Ihre Nachricht ein... (z.B. "Ich benötige 500A MIG-Schweißen")',
+                sendBtn: 'Senden',
+                welcomeMessage: 'Willkommen! Ich helfe Ihnen, Ihre Schweißausrüstung Schritt für Schritt zu konfigurieren (S1→S7). Beginnen wir mit der Auswahl einer Stromquelle. Was sind Ihre Schweißanforderungen?',
+                languageChanged: 'Sprache geändert auf',
+                newMessagesIn: 'Neue Nachrichten werden in dieser Sprache sein.'
+            },
+            pt: {
+                pageTitle: '🔧 Recomendador V2 - Configurador S1→S7',
+                pageSubtitle: 'Sistema de Configuração de Equipamento de Soldagem Passo a Passo',
+                connectedStatus: 'Conectado à API',
+                currentStateLabel: 'Estado Atual',
+                cartHeader: '🛒 Produtos Selecionados',
+                cartEmpty: 'Nenhum produto selecionado ainda',
+                totalComponents: 'Total de Componentes:',
+                finalizeBtn: 'Finalizar Configuração',
+                inputPlaceholder: 'Digite sua mensagem... (por exemplo, "Preciso de soldagem MIG de 500A")',
+                sendBtn: 'Enviar',
+                welcomeMessage: 'Bem-vindo! Vou ajudá-lo a configurar seu equipamento de soldagem passo a passo (S1→S7). Vamos começar selecionando uma Fonte de Alimentação. Quais são seus requisitos de soldagem?',
+                languageChanged: 'Idioma alterado para',
+                newMessagesIn: 'Novas mensagens estarão neste idioma.'
+            },
+            it: {
+                pageTitle: '🔧 Raccomandatore V2 - Configuratore S1→S7',
+                pageSubtitle: 'Sistema di Configurazione Attrezzatura di Saldatura Passo dopo Passo',
+                connectedStatus: 'Connesso all\'API',
+                currentStateLabel: 'Stato Attuale',
+                cartHeader: '🛒 Prodotti Selezionati',
+                cartEmpty: 'Nessun prodotto selezionato ancora',
+                totalComponents: 'Componenti Totali:',
+                finalizeBtn: 'Finalizza Configurazione',
+                inputPlaceholder: 'Digita il tuo messaggio... (ad es. "Ho bisogno di saldatura MIG da 500A")',
+                sendBtn: 'Invia',
+                welcomeMessage: 'Benvenuto! Ti aiuterò a configurare la tua attrezzatura di saldatura passo dopo passo (S1→S7). Iniziamo selezionando una Fonte di Alimentazione. Quali sono i tuoi requisiti di saldatura?',
+                languageChanged: 'Lingua cambiata in',
+                newMessagesIn: 'I nuovi messaggi saranno in questa lingua.'
+            },
+            sv: {
+                pageTitle: '🔧 Rekommenderare V2 - S1→S7 Konfigurator',
+                pageSubtitle: 'Steg-för-Steg Svetsningsutrustning Konfigurationssystem',
+                connectedStatus: 'Ansluten till API',
+                currentStateLabel: 'Aktuellt Tillstånd',
+                cartHeader: '🛒 Valda Produkter',
+                cartEmpty: 'Inga produkter valda ännu',
+                totalComponents: 'Totalt Komponenter:',
+                finalizeBtn: 'Slutför Konfiguration',
+                inputPlaceholder: 'Skriv ditt meddelande... (t.ex. "Jag behöver 500A MIG-svetsning")',
+                sendBtn: 'Skicka',
+                welcomeMessage: 'Välkommen! Jag hjälper dig att konfigurera din svetsutrustning steg för steg (S1→S7). Låt oss börja med att välja en strömkälla. Vilka är dina svetskrav?',
+                languageChanged: 'Språk ändrat till',
+                newMessagesIn: 'Nya meddelanden kommer att vara på detta språk.'
+            }
+        };
+
+        // Language names for display
+        const languageNames = {
+            'en': 'English', 'es': 'Español', 'fr': 'Français',
+            'de': 'Deutsch', 'pt': 'Português', 'it': 'Italiano', 'sv': 'Svenska'
+        };
+
+        // Update UI language
+        function updateUILanguage(lang) {
+            const t = translations[lang];
+
+            // Update page title and subtitle
+            document.querySelector('.header h1').textContent = t.pageTitle;
+            document.querySelector('.header p').textContent = t.pageSubtitle;
+
+            // Update status bar
+            document.querySelector('.status-indicator span').textContent = t.connectedStatus;
+
+            // Update cart header
+            document.querySelector('.cart-header').textContent = t.cartHeader;
+
+            // Update cart empty message if visible
+            const cartEmptyDiv = document.querySelector('.cart-empty');
+            if (cartEmptyDiv) {
+                cartEmptyDiv.textContent = t.cartEmpty;
+            }
+
+            // Update cart summary labels
+            const totalLabel = document.querySelector('.cart-summary-item span');
+            if (totalLabel) {
+                totalLabel.textContent = t.totalComponents;
+            }
+
+            // Update finalize button
+            const finalizeBtn = document.getElementById('finalizeBtn');
+            if (finalizeBtn) {
+                finalizeBtn.textContent = t.finalizeBtn;
+            }
+
+            // Update input placeholder
+            document.getElementById('userInput').placeholder = t.inputPlaceholder;
+
+            // Update send button
+            document.getElementById('sendBtn').textContent = t.sendBtn;
+
+            // Update welcome message (replace first message in chat)
+            const firstMessage = document.querySelector('.chat-container .message.assistant .message-bubble');
+            if (firstMessage) {
+                firstMessage.innerHTML = t.welcomeMessage;
+            }
+        }
+
+        // Change language and update UI
+        function changeLanguage() {
+            const select = document.getElementById('languageSelect');
+            currentLanguage = select.value;
+            sessionStorage.setItem('preferredLanguage', currentLanguage);
+
+            // Update all UI text
+            updateUILanguage(currentLanguage);
+
+            // Show language change notification
+            const t = translations[currentLanguage];
+            addMessage(`🌍 ${t.languageChanged} ${languageNames[currentLanguage]}. ${t.newMessagesIn}`, false);
+            console.log('Language changed to:', currentLanguage);
+        }
 
         function addMessage(text, isUser = false, products = null) {
             const chatContainer = document.getElementById('chatContainer');
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
 
-            // Format text with line breaks and markdown
-            // Process bold first (longer pattern), then italic, then line breaks
-            let formattedText = text
-                .replace(/\*\*([^*]+(?:\*(?!\*)[^*]+)*)\*\*/g, '<strong>$1</strong>')  // Bold: matches **text** including content with single *
-                .replace(/\*([^*]+)\*/g, '<em>$1</em>')  // Italic: matches *text*
-                .replace(/\n/g, '<br>');  // Line breaks last to preserve structure
+            // Format markdown text properly
+            let formattedText = text;
+
+            // 1. Handle code blocks first (```...```)
+            formattedText = formattedText.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+                return `<pre style="background: #f4f4f4; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 10px 0;"><code>${code.trim()}</code></pre>`;
+            });
+
+            // 2. Handle bullet lists (- item or • item)
+            formattedText = formattedText.replace(/^[•\-]\s+(.+)$/gm, '<li>$1</li>');
+            formattedText = formattedText.replace(/(<li>.*<\/li>\n?)+/g, '<ul style="margin: 10px 0; padding-left: 20px;">$&</ul>');
+
+            // 3. Handle bold (**text**)
+            formattedText = formattedText.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+            // 4. Handle line breaks last
+            formattedText = formattedText.replace(/\n/g, '<br>');
 
             let content = `
                 <div class="message-avatar">${isUser ? '👤' : '🤖'}</div>
@@ -507,7 +726,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         session_id: sessionId,
-                        message: message
+                        message: message,
+                        language: currentLanguage
                     })
                 });
 
@@ -528,7 +748,7 @@
                 addMessage(data.message, false, data.products);
 
             } catch (error) {
-                addMessage('❌ Error connecting to server. Please check if the API is running on port 8001.', false);
+                addMessage('❌ Error connecting to server. Please check if the API is running on port 8000.', false);
                 console.error('Error:', error);
             }
 
@@ -589,6 +809,16 @@
             console.log('Recommender V2 Test Interface Ready');
             console.log('API Endpoint:', API_BASE);
             console.log('Frontend URL: http://localhost:3001');
+
+            // Load saved language preference
+            const savedLanguage = sessionStorage.getItem('preferredLanguage');
+            if (savedLanguage) {
+                currentLanguage = savedLanguage;
+                document.getElementById('languageSelect').value = savedLanguage;
+                // Apply saved language to UI
+                updateUILanguage(savedLanguage);
+                console.log('Loaded saved language preference:', savedLanguage);
+            }
         };
     </script>
 </body>

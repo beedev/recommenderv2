@@ -27,6 +27,7 @@ class MessageRequest(BaseModel):
     session_id: Optional[str] = None
     message: str
     reset: bool = False
+    language: str = "en"  # ISO 639-1 language code (en, es, fr, de, pt, it, sv)
 
 
 class SelectProductRequest(BaseModel):
@@ -48,7 +49,11 @@ class MessageResponse(BaseModel):
     can_finalize: bool = False
 
 
-async def get_or_create_session(session_id: Optional[str] = None, reset: bool = False) -> ConversationState:
+async def get_or_create_session(
+    session_id: Optional[str] = None,
+    reset: bool = False,
+    language: str = "en"
+) -> ConversationState:
     """Get existing session from Redis or create new one"""
 
     redis_storage = get_redis_session_storage()
@@ -57,17 +62,21 @@ async def get_or_create_session(session_id: Optional[str] = None, reset: bool = 
         # Try to retrieve from Redis
         existing_session = await redis_storage.get_session(session_id)
         if existing_session:
-            logger.info(f"Retrieved existing session from Redis: {session_id}")
+            # Update language if changed
+            if existing_session.language != language:
+                existing_session.language = language
+                await redis_storage.save_session(existing_session)
+            logger.info(f"Retrieved existing session from Redis: {session_id} (language: {language})")
             return existing_session
 
     # Create new session
     new_session_id = session_id or str(uuid.uuid4())
-    conversation_state = ConversationState(session_id=new_session_id)
+    conversation_state = ConversationState(session_id=new_session_id, language=language)
 
     # Save to Redis
     await redis_storage.save_session(conversation_state)
 
-    logger.info(f"Created new session in Redis: {new_session_id}")
+    logger.info(f"Created new session in Redis: {new_session_id} (language: {language})")
     return conversation_state
 
 
@@ -94,7 +103,7 @@ async def process_message(
         redis_storage = get_redis_session_storage()
 
         # Get or create session from Redis
-        conversation_state = await get_or_create_session(request.session_id, request.reset)
+        conversation_state = await get_or_create_session(request.session_id, request.reset, request.language)
 
         # Process message through orchestrator
         result = await orchestrator.process_message(conversation_state, request.message)
@@ -144,7 +153,7 @@ async def select_product(
             raise HTTPException(status_code=404, detail="Session not found")
 
         # Select product through orchestrator
-        result = orchestrator.select_product(
+        result = await orchestrator.select_product(
             conversation_state,
             request.product_gin,
             request.product_data

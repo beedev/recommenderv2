@@ -6,6 +6,7 @@ Generates user-friendly messages based on current state
 import logging
 from typing import Dict, List, Optional, Any
 from ..neo4j.product_search import SearchResults
+from ..multilingual.translator import get_translator, MultilingualTranslator
 
 logger = logging.getLogger(__name__)
 
@@ -14,21 +15,25 @@ class MessageGenerator:
     """
     Simple message generator for conversational responses
     Tailored to S1→S7 state-by-state flow
+    Supports multilingual responses via LLM translation
     """
 
     def __init__(self):
         """Initialize message generator"""
-        logger.info("Message Generator initialized")
+        self.translator = get_translator()
+        logger.info("Message Generator initialized with multilingual support")
 
-    def generate_state_prompt(
+    async def generate_state_prompt(
         self,
         current_state: str,
         master_parameters: Dict[str, Any],
-        response_json: Dict[str, Any]
+        response_json: Dict[str, Any],
+        language: str = "en"
     ) -> str:
         """
         Generate prompt message for current state
         Guides user through S1→S7 selection process
+        Supports translation to user's language
         """
 
         # State-specific prompts
@@ -45,23 +50,40 @@ class MessageGenerator:
         # Get state-specific prompt generator
         prompt_generator = state_prompts.get(current_state, self._prompt_default)
 
-        # Generate prompt
-        return prompt_generator(master_parameters, response_json)
+        # Generate English prompt
+        english_prompt = prompt_generator(master_parameters, response_json)
 
-    def generate_search_results_message(
+        # Translate if not English
+        if language != "en":
+            try:
+                translated_prompt = await self.translator.translate(
+                    english_prompt,
+                    language,
+                    context=f"State: {current_state} - Welding equipment configurator prompt"
+                )
+                return translated_prompt
+            except Exception as e:
+                logger.error(f"Translation failed for {language}: {e}, returning English")
+                return english_prompt
+
+        return english_prompt
+
+    async def generate_search_results_message(
         self,
         current_state: str,
         search_results: SearchResults,
-        master_parameters: Dict[str, Any]
+        master_parameters: Dict[str, Any],
+        language: str = "en"
     ) -> str:
         """
         Generate message presenting search results to user
+        Supports translation to user's language
         """
 
         if not search_results.products:
-            return self._generate_no_results_message(current_state)
+            return await self._generate_no_results_message(current_state, language)
 
-        # Build results message
+        # Build results message in English
         component_name = self._get_component_name(current_state)
 
         message = f"I found {search_results.total_count} {component_name} options"
@@ -72,7 +94,7 @@ class MessageGenerator:
 
         message += ":\n\n"
 
-        # List products
+        # List products (names and GINs stay in English for consistency)
         for idx, product in enumerate(search_results.products[:5], 1):  # Show top 5
             message += f"{idx}. **{product.name}** (GIN: {product.gin})\n"
             if product.description:
@@ -85,6 +107,19 @@ class MessageGenerator:
         # PowerSource cannot be skipped
         if current_state != "power_source_selection":
             message += "\n- Or say 'skip' if not needed"
+
+        # Translate if not English
+        if language != "en":
+            try:
+                translated_message = await self.translator.translate(
+                    message,
+                    language,
+                    context="Product search results message"
+                )
+                return translated_message
+            except Exception as e:
+                logger.error(f"Translation failed for {language}: {e}, returning English")
+                return message
 
         return message
 
@@ -328,12 +363,12 @@ Or say **'done'** to finalize your configuration.
 
         return component_names.get(state, "Component")
 
-    def _generate_no_results_message(self, current_state: str) -> str:
+    async def _generate_no_results_message(self, current_state: str, language: str = "en") -> str:
         """Generate message when no search results found"""
 
         component_name = self._get_component_name(current_state)
 
-        return f"""
+        english_message = f"""
 ⚠️ No {component_name} options found matching your requirements.
 
 This could mean:
@@ -346,6 +381,19 @@ Would you like to:
 2. Skip this component
 3. Get help from a specialist
 """
+
+        # Translate if not English
+        if language != "en":
+            try:
+                return await self.translator.translate(
+                    english_message,
+                    language,
+                    context="No search results found message"
+                )
+            except Exception as e:
+                logger.error(f"Translation failed for {language}: {e}, returning English")
+
+        return english_message
 
 
 # Dependency injection
