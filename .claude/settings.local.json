@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "simple-ai-provenance"
+  ],
+  "enableAllProjectMcpServers": true
+}

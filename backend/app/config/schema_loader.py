@@ -133,6 +133,56 @@ def validate_component_dict(component_name: str, component_dict: Dict[str, Any])
         return False
 
 
+@lru_cache(maxsize=1)
+def load_accessory_category_mappings() -> Dict[str, Any]:
+    """
+    Load and cache accessory category mappings from config
+    Maps user terms to Neo4j category names for LLM extraction
+
+    Returns:
+        Dict with mappings structure from accessory_category_mappings.json
+    """
+    try:
+        config_path = os.path.join(
+            os.path.dirname(__file__),
+            "accessory_category_mappings.json"
+        )
+
+        with open(config_path, "r") as f:
+            mappings_config = json.load(f)
+
+        logger.info(f"Loaded accessory category mappings v{mappings_config.get('version', 'unknown')}")
+        return mappings_config
+
+    except FileNotFoundError:
+        logger.warning(f"Accessory category mappings file not found at {config_path}, using defaults")
+        return {"mappings": {}}
+    except Exception as e:
+        logger.error(f"Failed to load accessory category mappings: {e}")
+        return {"mappings": {}}
+
+
+def get_accessory_category_mappings() -> Dict[str, Any]:
+    """
+    Get accessory category mappings
+    Maps user terms to Neo4j category names for LLM extraction
+
+    Returns:
+        Dict with category mappings:
+        {
+            "Remote": {
+                "category_name": "Remote",
+                "user_terms": ["remote", "remotes", ...]
+            },
+            ...
+        }
+    """
+    config = load_accessory_category_mappings()
+    mappings = config.get("mappings", {})
+    logger.info(f"Retrieved {len(mappings)} accessory category mappings")
+    return mappings
+
+
 # Convenience function to get schema version
 def get_schema_version() -> str:
     """Get schema version string"""

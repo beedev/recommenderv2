@@ -1,5 +1,5 @@
 """LangGraph workflow services for S1→S7 configurator."""
 
-from .configurator_graph import ConfiguratorGraph
+from .configurator_wrapper import ConfiguratorGraphWrapper
 
-__all__ = ["ConfiguratorGraph"]
+__all__ = ["ConfiguratorGraphWrapper"]

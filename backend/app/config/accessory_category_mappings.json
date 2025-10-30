@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "description": "Maps user terms to Neo4j accessory category names for LLM extraction",
+  "mappings": {
+    "Remote": {
+      "category_name": "Remote",
+      "user_terms": [
+        "remote",
+        "remotes",
+        "remote control",
+        "remote controls",
+        "pendant",
+        "pendants",
+        "footpedal",
+        "footpedals",
+        "foot pedal",
+        "foot pedals",
+        "foot control",
+        "foot controls"
+      ]
+    },
+    "PowerSourceAccessory": {
+      "category_name": "PowerSourceAccessory",
+      "user_terms": [
+        "trolley",
+        "trolleys",
+        "power cable",
+        "power cables",
+        "wire spool",
+        "wire spools"
+      ]
+    },
+    "FeederAccessory": {
+      "category_name": "FeederAccessory",
+      "user_terms": [
+        "drive roll",
+        "drive rolls",
+        "liner",
+        "liners",
+        "contact tip",
+        "contact tips",
+        "wire guide"
+      ]
+    },
+    "ConnectivityAccessory": {
+      "category_name": "ConnectivityAccessory",
+      "user_terms": [
+        "connectivity",
+        "arclink",
+        "bluetooth",
+        "wireless",
+        "connection module",
+        "connectivity module"
+      ]
+    },
+    "Accessory": {
+      "category_name": "Accessory",
+      "user_terms": [
+        "accessory",
+        "accessories",
+        "general accessory",
+        "bag",
+        "bags",
+        "shoulder bag",
+        "carrying case",
+        "carrying bag",
+        "storage bag",
+        "equipment bag"
+      ]
+    }
+  }
+}

@@ -29,7 +29,7 @@
         "Accessories": "Y"
       }
     },
-    "0445250880": {
+    "0445100880": {
       "name": "Renegade ES 300i",
       "category": "Power Source",
       "description": "300A Engine-Driven Welder/Generator",
@@ -41,7 +41,19 @@
         "Accessories": "Y"
       }
     },
-    "0445200880": {
+    "0445250880": {
+      "name": "Renegade ES 300i with cables",
+      "category": "Power Source",
+      "description": "300A Engine-Driven Welder/Generator",
+      "applicability": {
+        "Feeder": "N",
+        "Cooler": "N",
+        "Interconnector": "N",
+        "Torch": "N",
+        "Accessories": "Y"
+      }
+    },
+    "0465350883": {
       "name": "Warrior 500i",
       "category": "Power Source",
       "description": "500A Engine-Driven Welder/Generator",
@@ -53,7 +65,7 @@
         "Accessories": "Y"
       }
     },
-    "0445220880": {
+    "0465350884": {
       "name": "Warrior 400i",
       "category": "Power Source",
       "description": "400A Engine-Driven Welder/Generator",

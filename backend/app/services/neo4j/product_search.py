@@ -35,10 +35,17 @@ class Neo4jProductSearch:
     """
 
     def __init__(self, uri: str, username: str, password: str):
-        """Initialize Neo4j connection"""
-        self.driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
+        """Initialize Neo4j connection with connection pooling"""
+        self.driver = AsyncGraphDatabase.driver(
+            uri,
+            auth=(username, password),
+            max_connection_pool_size=50,  # Connection pool size
+            connection_timeout=30.0,      # Connection timeout in seconds
+            max_transaction_retry_time=30.0,  # Retry timeout
+            connection_acquisition_timeout=60.0  # Pool acquisition timeout
+        )
         self.product_names = self._load_product_names()
-        logger.info(f"Neo4j Product Search initialized - URI: {uri}")
+        logger.info(f"Neo4j Product Search initialized with connection pooling - URI: {uri}")
 
     async def close(self):
         """Close Neo4j connection"""
@@ -151,12 +158,12 @@ class Neo4jProductSearch:
         )
 
         if not matches:
-            logger.info(f"No fuzzy match found for '{user_input}' in {component_type}")
+            logger.debug(f"No fuzzy match found for '{user_input}' in {component_type}")
             return user_input
 
         # Single match - return exact product name
         matched_name, score, _ = matches[0]
-        logger.info(f"Fuzzy matched '{user_input}' to '{matched_name}' (score: {score})")
+        logger.debug(f"Fuzzy matched '{user_input}' to '{matched_name}' (score: {score})")
         return matched_name
 
     def _expand_measurement_terms(self, value: str) -> List[str]:
@@ -195,13 +202,13 @@ class Neo4jProductSearch:
             original_with_space = f" {value}"
             decimal_variant = f" {number}.0{unit}"
 
-            logger.info(f"Expanded measurement term: '{value}' → ['{original_with_space}', '{decimal_variant}']")
+            logger.debug(f"Expanded measurement term: '{value}' → ['{original_with_space}', '{decimal_variant}']")
             return [original_with_space, decimal_variant]
 
         # No length measurement pattern or already has decimal
         # Still add leading space for word boundary
         term_with_space = f" {value}"
-        logger.info(f"Added word boundary to term: '{value}' → '{term_with_space}'")
+        logger.debug(f"Added word boundary to term: '{value}' → '{term_with_space}'")
         return [term_with_space]
 
     def _build_search_terms_from_component(
@@ -231,6 +238,10 @@ class Neo4jProductSearch:
 
         # Loop through all features in component dict
         for key, value in component_dict.items():
+            # Skip accessory_type field - it's used for category filtering, not search terms
+            if key == "accessory_type":
+                continue
+
             if value and isinstance(value, str) and value.strip():
                 # Apply fuzzy normalization for product_name field only
                 if key == "product_name" and component_type in ["power_source", "feeder", "cooler"]:
@@ -318,6 +329,7 @@ class Neo4jProductSearch:
             1. Try primary search with search terms
             2. If no results AND search terms were provided → fallback to broader search
             3. Update filters_applied with fallback message if used
+            4. Deduplicate results by GIN (for UNION queries with multiple compatibility paths)
         """
         # Try primary search
         products = await self._execute_search(primary_query, primary_params)
@@ -340,7 +352,39 @@ class Neo4jProductSearch:
                     f"Showing all compatible {category}."
                 )
 
+        # Deduplicate products by GIN (for UNION queries, same product may appear via multiple paths)
+        products = self._deduplicate_by_gin(products)
+
         return products, filters_applied
+
+    def _deduplicate_by_gin(self, products: List[ProductResult]) -> List[ProductResult]:
+        """
+        Deduplicate products by GIN, keeping first occurrence
+
+        This is necessary for UNION queries where the same accessory may be compatible
+        with multiple selected components (e.g., compatible with both PowerSource AND Feeder)
+
+        Args:
+            products: List of ProductResult objects (may contain duplicates)
+
+        Returns:
+            List of ProductResult objects with duplicates removed
+        """
+        seen_gins = set()
+        deduplicated = []
+        duplicates_removed = 0
+
+        for product in products:
+            if product.gin not in seen_gins:
+                seen_gins.add(product.gin)
+                deduplicated.append(product)
+            else:
+                duplicates_removed += 1
+
+        if duplicates_removed > 0:
+            logger.info(f"Deduplicated {duplicates_removed} duplicate product(s) by GIN")
+
+        return deduplicated
 
     async def search_power_source(
         self,
@@ -735,11 +779,11 @@ class Neo4jProductSearch:
     ) -> SearchResults:
         """
         S6: Search for accessories across all accessory categories
-        Searches: PowerSourceAccessory, FeederAccessory, ConnectivityAccessory, Accessory
+        Searches: PowerSourceAccessory, FeederAccessory, ConnectivityAccessory, Remote, Accessory
         Uses modular helpers for search term filtering and fallback logic
 
-        Note: Searches all categories containing 'Accessory' using CONTAINS clause
-        This allows finding trolleys (PowerSourceAccessory) without knowing exact category
+        Note: Searches all categories containing 'Accessory' OR category = 'Remote'
+        This allows finding trolleys (PowerSourceAccessory) and remotes without knowing exact category
         """
 
         # Build compatibility filter based on what's been selected
@@ -760,11 +804,69 @@ class Neo4jProductSearch:
             params["excluded_gins"] = selected_gins
             filters_applied["excluded_accessories"] = selected_gins
 
+        # Initialize union_parts list (used for compatibility-based queries)
+        union_parts = []
+
+        # Extract accessories component dict FIRST to check for accessory_type
+        accessories_dict = master_parameters.get("accessories", {})
+        extracted_accessory_type = accessories_dict.get("accessory_type")
+
+        # Debug logging
+        logger.debug(f"🔍 DEBUG: accessories_dict = {accessories_dict}")
+        logger.debug(f"🔍 DEBUG: extracted_accessory_type = {extracted_accessory_type}")
+        logger.debug(f"🔍 DEBUG: accessory_category param = {accessory_category}")
+
+        # If LLM extracted a specific accessory type and no explicit category provided, use it
+        if extracted_accessory_type and not accessory_category:
+            accessory_category = extracted_accessory_type
+            filters_applied["accessory_type_from_llm"] = extracted_accessory_type
+            logger.info(f"✅ Using LLM-extracted accessory_type for category filtering: {extracted_accessory_type}")
+        else:
+            logger.info(f"❌ NOT using accessory_type. extracted={extracted_accessory_type}, param={accessory_category}")
+
+        # If specific accessory category requested, build targeted query
+        if accessory_category:
+            filters_applied["category_filter"] = accessory_category
+            filters_applied["search_mode"] = f"category_specific_{accessory_category}"
+
+            # Build exclusion clause
+            exclusion_clause = ""
+            if selected_gins:
+                exclusion_clause = " AND NOT a.gin IN $excluded_gins"
+
+            # Build query for specific category with compatibility check
+            if power_source_gin or feeder_gin or cooler_gin:
+                # Search for this category compatible with ANY selected component
+                component_gins = []
+                if power_source_gin:
+                    component_gins.append(power_source_gin)
+                if feeder_gin:
+                    component_gins.append(feeder_gin)
+                if cooler_gin:
+                    component_gins.append(cooler_gin)
+
+                params["component_gins"] = component_gins
+                params["accessory_category"] = accessory_category
+
+                base_query = f"""
+                MATCH (c:Product)-[:COMPATIBLE_WITH]-(a:Product)
+                WHERE c.gin IN $component_gins
+                AND a.category = $accessory_category
+                AND a.is_available = true{exclusion_clause}
+                """
+            else:
+                # No components selected, just filter by category
+                params["accessory_category"] = accessory_category
+                base_query = f"""
+                MATCH (a:Product)
+                WHERE a.category = $accessory_category
+                AND a.is_available = true{exclusion_clause}
+                """
+
         # Build base query to search across ALL accessory categories
         # We'll use UNION to combine results from different compatibility paths
-        if power_source_gin or feeder_gin or cooler_gin:
+        elif power_source_gin or feeder_gin or cooler_gin:
             # Build UNION query for multiple compatibility paths
-            union_parts = []
 
             # Build exclusion clause
             exclusion_clause = ""
@@ -777,7 +879,11 @@ class Neo4jProductSearch:
                 filters_applied["compatible_with_power_source"] = power_source_gin
                 union_parts.append(f"""
                     MATCH (ps:Product {{gin: $power_source_gin}})-[:COMPATIBLE_WITH]-(a:Product)
-                    WHERE a.category CONTAINS 'Accessory' AND a.is_available = true{exclusion_clause}
+                    WHERE (a.category CONTAINS 'Accessory' OR a.category = 'Remote') AND a.is_available = true{exclusion_clause}
+                    RETURN a.gin as gin, a.name as name, a.category as category,
+                           a.description as description,
+                           a.specifications_json as specifications_json,
+                           a as specifications
                 """)
 
             if feeder_gin:
@@ -786,7 +892,11 @@ class Neo4jProductSearch:
                 filters_applied["compatible_with_feeder"] = feeder_gin
                 union_parts.append(f"""
                     MATCH (f:Product {{gin: $feeder_gin}})-[:COMPATIBLE_WITH]-(a:Product)
-                    WHERE a.category CONTAINS 'Accessory' AND a.is_available = true{exclusion_clause}
+                    WHERE (a.category CONTAINS 'Accessory' OR a.category = 'Remote') AND a.is_available = true{exclusion_clause}
+                    RETURN a.gin as gin, a.name as name, a.category as category,
+                           a.description as description,
+                           a.specifications_json as specifications_json,
+                           a as specifications
                 """)
 
             if cooler_gin:
@@ -795,7 +905,11 @@ class Neo4jProductSearch:
                 filters_applied["compatible_with_cooler"] = cooler_gin
                 union_parts.append(f"""
                     MATCH (c:Product {{gin: $cooler_gin}})-[:COMPATIBLE_WITH]-(a:Product)
-                    WHERE a.category CONTAINS 'Accessory' AND a.is_available = true{exclusion_clause}
+                    WHERE (a.category CONTAINS 'Accessory' OR a.category = 'Remote') AND a.is_available = true{exclusion_clause}
+                    RETURN a.gin as gin, a.name as name, a.category as category,
+                           a.description as description,
+                           a.specifications_json as specifications_json,
+                           a as specifications
                 """)
 
             # Combine with UNION to get all compatible accessories
@@ -805,17 +919,22 @@ class Neo4jProductSearch:
             exclusion_clause = ""
             if selected_gins:
                 exclusion_clause = " AND NOT a.gin IN $excluded_gins"
-            base_query = f"MATCH (a:Product) WHERE a.category CONTAINS 'Accessory' AND a.is_available = true{exclusion_clause}"
+            base_query = f"MATCH (a:Product) WHERE (a.category CONTAINS 'Accessory' OR a.category = 'Remote') AND a.is_available = true{exclusion_clause}"
 
-        # Extract accessories component dict and build search terms
-        accessories_dict = master_parameters.get("accessories", {})
+        # Build search terms from accessories dict (accessory_type already extracted above)
         search_terms = self._build_search_terms_from_component(accessories_dict, "accessories")
 
         # Build primary query with search term filters (if any)
         primary_query = base_query
         primary_params = params.copy()
 
-        if search_terms:
+        # Check if we're dealing with a UNION-style query (compatibility-based)
+        # Even if there's only one component, union_parts indicates RETURN is already included
+        is_union_query = len(union_parts) > 0
+
+        # For UNION queries, we CAN'T add search term filters after RETURN statements
+        # So we skip search term filtering for UNION queries and let fallback handle it
+        if search_terms and not is_union_query:
             filters_applied["search_terms"] = search_terms
             filters_applied["component"] = "accessories"
             primary_query, primary_params = self._add_search_term_filters(
@@ -823,7 +942,29 @@ class Neo4jProductSearch:
             )
 
         # Add RETURN clause (with DISTINCT to prevent duplicates)
-        return_clause = """
+        # For UNION queries, each part already has RETURN, so just add ORDER/LIMIT
+        if is_union_query:
+            # UNION queries already have RETURN in each part, just add ORDER and LIMIT
+            order_limit_clause = """
+        ORDER BY name
+        LIMIT $limit
+        """
+            primary_query += order_limit_clause
+            primary_params["limit"] = limit
+
+            # For UNION + search terms: can't apply search filters to UNION query
+            # So use base query without search terms as both primary and fallback
+            if search_terms:
+                # Log that we're skipping search term filtering for UNION
+                logger.info(f"Skipping search term filtering for UNION query with terms: {search_terms}")
+                filters_applied["search_terms_skipped_for_union"] = search_terms
+
+            fallback_query = base_query + order_limit_clause
+            fallback_params = params.copy()
+            fallback_params["limit"] = limit
+        else:
+            # Non-UNION query: add full RETURN clause
+            return_clause = """
         RETURN DISTINCT a.gin as gin, a.name as name, a.category as category,
                a.description as description,
                a.specifications_json as specifications_json,
@@ -831,13 +972,13 @@ class Neo4jProductSearch:
         ORDER BY a.name
         LIMIT $limit
         """
-        primary_query += return_clause
-        primary_params["limit"] = limit
+            primary_query += return_clause
+            primary_params["limit"] = limit
 
-        # Build fallback query (without search term filters)
-        fallback_query = base_query + return_clause
-        fallback_params = params.copy()
-        fallback_params["limit"] = limit
+            # Build fallback query (without search term filters)
+            fallback_query = base_query + return_clause
+            fallback_params = params.copy()
+            fallback_params["limit"] = limit
 
         # Execute with fallback logic
         products, filters_applied = await self._execute_search_with_fallback(
@@ -858,11 +999,12 @@ class Neo4jProductSearch:
         )
 
     async def _execute_search(self, query: str, params: Dict[str, Any]) -> List[ProductResult]:
-        """Execute Neo4j search query and return results"""
+        """Execute Neo4j search query and return results with timeout"""
 
         try:
             async with self.driver.session() as session:
-                result = await session.run(query, params)
+                # Execute query with 30-second timeout
+                result = await session.run(query, params, timeout=30.0)
                 records = await result.data()
 
                 products = []

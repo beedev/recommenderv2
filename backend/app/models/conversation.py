@@ -7,12 +7,15 @@ from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field, create_model
 from datetime import datetime
 from enum import Enum
+import logging
 import sys
 import os
 
 # Add config path for schema loader
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from config.schema_loader import get_component_list
+
+logger = logging.getLogger(__name__)
 
 
 class ConfiguratorState(str, Enum):
@@ -231,6 +234,18 @@ class ConversationState(BaseModel):
         """Set component applicability after PowerSource selection"""
         self.response_json.applicability = applicability
 
+        # Debug logging
+        logger.info("=" * 80)
+        logger.info("🔍 SET_APPLICABILITY DEBUG")
+        logger.info(f"Applicability object set: {applicability}")
+        if applicability:
+            logger.info(f"  Feeder: {applicability.Feeder}")
+            logger.info(f"  Cooler: {applicability.Cooler}")
+            logger.info(f"  Interconnector: {applicability.Interconnector}")
+            logger.info(f"  Torch: {applicability.Torch}")
+            logger.info(f"  Accessories: {applicability.Accessories}")
+        logger.info("=" * 80)
+
     def get_next_state(self) -> Optional[ConfiguratorState]:
         """
         Determine next state based on applicability and current state
@@ -257,11 +272,28 @@ class ConversationState(BaseModel):
         # Find next applicable state
         applicability = self.response_json.applicability
 
+        # Debug logging
+        logger.info("=" * 80)
+        logger.info("🔍 GET_NEXT_STATE DEBUG")
+        logger.info(f"Current state: {self.current_state.value}")
+        logger.info(f"Current state index: {current_idx}")
+        logger.info(f"Applicability object: {applicability}")
+        if applicability:
+            logger.info(f"  Feeder: {applicability.Feeder}")
+            logger.info(f"  Cooler: {applicability.Cooler}")
+            logger.info(f"  Interconnector: {applicability.Interconnector}")
+            logger.info(f"  Torch: {applicability.Torch}")
+            logger.info(f"  Accessories: {applicability.Accessories}")
+
         for next_idx in range(current_idx + 1, len(state_order)):
             next_state = state_order[next_idx]
 
+            logger.info(f"Checking state: {next_state.value} (index {next_idx})")
+
             # Finalize is always applicable
             if next_state == ConfiguratorState.FINALIZE:
+                logger.info(f"  → FINALIZE is always applicable")
+                logger.info("=" * 80)
                 return next_state
 
             # Check if component is applicable
@@ -277,17 +309,29 @@ class ConversationState(BaseModel):
                 component_name = component_map.get(next_state)
                 if component_name:
                     # Check applicability
-                    is_applicable = getattr(applicability, component_name, "Y") == "Y"
+                    applicability_value = getattr(applicability, component_name, "Y")
+                    is_applicable = applicability_value == "Y"
+                    logger.info(f"  Component: {component_name}")
+                    logger.info(f"  Applicability value: {applicability_value}")
+                    logger.info(f"  Is applicable: {is_applicable}")
+
                     if is_applicable:
+                        logger.info(f"  → Returning {next_state.value} (applicable)")
+                        logger.info("=" * 80)
                         return next_state
                     else:
+                        logger.info(f"  → Skipping {next_state.value} (not applicable)")
                         # Auto-skip this state by marking as NA
                         continue
             else:
                 # No applicability set yet (before S1 completion)
+                logger.info(f"  → No applicability set yet, returning {next_state.value}")
+                logger.info("=" * 80)
                 return next_state
 
         # Reached end of states
+        logger.info(f"Reached end of states, returning FINALIZE")
+        logger.info("=" * 80)
         return ConfiguratorState.FINALIZE
 
     def can_finalize(self) -> bool:

@@ -14,13 +14,14 @@ neo4j==5.14.1                       # Neo4j graph database driver
 asyncpg==0.29.0                     # Async PostgreSQL adapter for Python
 psycopg2-binary==2.9.9              # PostgreSQL adapter (binary distribution)
 
-# Authentication and Security  
+# Authentication and Security
 pyjwt==2.8.0                         # JWT token creation and verification
 python-jose[cryptography]==3.3.0    # Alternative JWT implementation
 passlib[bcrypt]==1.7.4               # Password hashing library
 bcrypt==4.1.2                        # Password hashing (explicit dependency)
 python-multipart==0.0.6             # Multipart form data parsing
 cryptography>=42.0.0                # Cryptographic recipes and primitives
+slowapi==0.1.9                      # Rate limiting for FastAPI
 
 # HTTP Client and Requests
 httpx==0.25.2                       # Async HTTP client

@@ -15,7 +15,7 @@ import sys
 
 # Add config path for schema loader
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
-from config.schema_loader import get_component_list
+from config.schema_loader import get_component_list, get_accessory_category_mappings
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,53 @@ class ParameterExtractor:
         except Exception as e:
             logger.warning(f"Could not load product names: {e}")
             return {"power_source": [], "feeder": [], "cooler": []}
+
+    def _build_accessories_guidance(self) -> str:
+        """Build accessories guidance dynamically from config file"""
+        # Load category mappings from config
+        mappings = get_accessory_category_mappings()
+
+        if not mappings:
+            # Fallback if config not loaded
+            return """
+FOCUS: Extract requirements for ACCESSORIES component
+Look for: accessory type, compatibility, cable length, remote control features
+"""
+
+        # Build category list
+        categories_text = "ACCESSORY CATEGORIES (use these exact values for accessory_type):\n"
+        for category_name, category_info in mappings.items():
+            user_terms = category_info.get("user_terms", [])
+            if user_terms:
+                terms_sample = ", ".join(user_terms[:4])  # Show first 4 terms
+                if len(user_terms) > 4:
+                    terms_sample += ", ..."
+                categories_text += f'- "{category_name}" - for {terms_sample}\n'
+
+        # Build user term mapping examples
+        examples_text = "\nUSER TERM MAPPING EXAMPLES:\n"
+        example_count = 0
+        for category_name, category_info in mappings.items():
+            user_terms = category_info.get("user_terms", [])
+            # Pick 2-3 examples per category
+            for term in user_terms[:2]:
+                examples_text += f'- "{term}" → accessory_type: "{category_name}"\n'
+                example_count += 1
+                if example_count >= 10:  # Limit total examples to keep prompt concise
+                    break
+            if example_count >= 10:
+                break
+
+        guidance = f"""
+FOCUS: Extract requirements for ACCESSORIES component
+Look for: accessory type, compatibility, cable length, remote control features
+
+{categories_text}
+{examples_text}
+If user requests specific accessory category, extract it to accessory_type field.
+If user says "accessories" without category, leave accessory_type empty.
+"""
+        return guidance
 
     @traceable(name="extract_parameters", run_type="llm")
     async def extract_parameters(
@@ -146,10 +193,7 @@ Look for: cable length, current rating, cooling type (gas/liquid), cross-section
 FOCUS: Extract requirements for TORCH component
 Look for: process type, current rating, cooling type, swan neck angle
 """,
-            "accessories_selection": """
-FOCUS: Extract requirements for ACCESSORIES component
-Look for: accessory type, compatibility, cable length, remote control features
-"""
+            "accessories_selection": self._build_accessories_guidance()
         }
 
         # Get state-specific guidance
@@ -225,6 +269,9 @@ INSTRUCTIONS:
    - "water cooled feeder" → feeder: {{"cooling_type": "Water-cooled"}}
    - "Aristo 500ix" → power_source: {{"product_name": "Aristo 500ix"}}
    - "RobustFeed with Cool2" → feeder: {{"product_name": "RobustFeed"}}, cooler: {{"product_name": "Cool2"}}
+   - "remote only" → accessories: {{"accessory_type": "Remote"}}
+   - "show me footpedals" → accessories: {{"accessory_type": "Remote"}}
+   - "trolley" → accessories: {{"accessory_type": "PowerSourceAccessory"}}
 
 6. OUTPUT FORMAT:
    - Return COMPLETE updated Master Parameter JSON
@@ -273,6 +320,10 @@ RETURN COMPLETE UPDATED JSON:
             for component in required_components:
                 if component not in parsed_data:
                     parsed_data[component] = {}
+
+            # Debug logging for accessories
+            if "accessories" in parsed_data:
+                logger.info(f"🔍 LLM extracted accessories: {parsed_data['accessories']}")
 
             logger.info(f"Successfully parsed LLM response with {sum(len(v) for v in parsed_data.values() if isinstance(v, dict))} total features")
             return parsed_data

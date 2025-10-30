@@ -7,8 +7,11 @@ import logging
 import json
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 
 from .api.v1.configurator import router as configurator_router
@@ -16,6 +19,7 @@ from .services.intent.parameter_extractor import ParameterExtractor
 from .services.neo4j.product_search import Neo4jProductSearch
 from .services.response.message_generator import MessageGenerator
 from .services.orchestrator.state_orchestrator import StateByStateOrchestrator
+from .services.graph.configurator_wrapper import ConfiguratorGraphWrapper
 
 # Database and LangGraph imports
 from .database.database import (
@@ -33,18 +37,26 @@ from .services.observability.langsmith_service import get_langsmith_service
 # Load environment variables
 load_dotenv()
 
-# Configure logging
+# Configure logging from environment
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+logger.info(f"Logging configured at {LOG_LEVEL} level")
+
+# Configure rate limiting from environment
+RATE_LIMIT_PER_MINUTE = os.getenv("RATE_LIMIT_PER_MINUTE", "60")
+limiter = Limiter(key_func=get_remote_address, default_limits=[f"{RATE_LIMIT_PER_MINUTE}/minute"])
+logger.info(f"Rate limiting configured: {RATE_LIMIT_PER_MINUTE} requests/minute")
 
 # Global instances
 parameter_extractor = None
 neo4j_search = None
 message_generator = None
 orchestrator = None
+graph_wrapper = None
 component_applicability_config = None
 
 
@@ -55,7 +67,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Recommender_v2 application...")
 
-    global parameter_extractor, neo4j_search, message_generator, orchestrator, component_applicability_config
+    global parameter_extractor, neo4j_search, message_generator, orchestrator, graph_wrapper, component_applicability_config
 
     # Load environment variables
     openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -130,6 +142,10 @@ async def lifespan(app: FastAPI):
         component_applicability_config=component_applicability_config
     )
 
+    # Initialize LangGraph wrapper for observability
+    graph_wrapper = ConfiguratorGraphWrapper(orchestrator)
+    logger.info("✓ LangGraph wrapper initialized")
+
     logger.info("All services initialized successfully")
 
     yield
@@ -166,14 +182,38 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configure CORS
+# Configure rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Configure CORS from environment
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8001,http://localhost:3001").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update for production
+    allow_origins=[origin.strip() for origin in ALLOWED_ORIGINS],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+logger.info(f"CORS configured with origins: {ALLOWED_ORIGINS}")
+
+# Add security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to all responses"""
+    response = await call_next(request)
+
+    # Security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+
+    return response
+
+logger.info("Security headers middleware configured")
 
 
 # Dependency injection for orchestrator
@@ -182,12 +222,18 @@ def get_orchestrator() -> StateByStateOrchestrator:
     return orchestrator
 
 
+def get_graph_wrapper() -> ConfiguratorGraphWrapper:
+    """Get LangGraph wrapper instance for dependency injection"""
+    return graph_wrapper
+
+
 # Include routers
 app.include_router(configurator_router)
 
 # Override dependency in app (not router)
-from .api.v1.configurator import get_orchestrator_dep
+from .api.v1.configurator import get_orchestrator_dep, get_graph_wrapper_dep
 app.dependency_overrides[get_orchestrator_dep] = get_orchestrator
+app.dependency_overrides[get_graph_wrapper_dep] = get_graph_wrapper
 
 
 @app.get("/")
@@ -199,6 +245,7 @@ async def root():
         "description": "S1→S7 State-by-State Welding Equipment Configurator",
         "endpoints": {
             "configurator": "/api/v1/configurator/message",
+            "configurator_graph": "/api/v1/configurator/message-graph (LangGraph wrapper)",
             "docs": "/docs"
         }
     }
@@ -219,6 +266,7 @@ async def health_check():
             "neo4j_search": neo4j_search is not None,
             "message_generator": message_generator is not None,
             "orchestrator": orchestrator is not None,
+            "graph_wrapper": graph_wrapper is not None,
             "redis": redis_manager._initialized,
             "postgresql": postgresql_manager._initialized,
             "langsmith": langsmith_service.is_enabled()

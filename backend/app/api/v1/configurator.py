@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from ...models.conversation import ConversationState, ConfiguratorState
 from ...services.orchestrator.state_orchestrator import StateByStateOrchestrator
+from ...services.graph.configurator_wrapper import ConfiguratorGraphWrapper
 from ...database.redis_session_storage import get_redis_session_storage
 from ...database.postgres_archival import postgres_archival_service
 from ...database.database import get_postgres_session
@@ -47,6 +48,7 @@ class MessageResponse(BaseModel):
     products: Optional[list] = None
     awaiting_selection: bool = False
     can_finalize: bool = False
+    proactive_suggestions: bool = False
 
 
 async def get_or_create_session(
@@ -82,6 +84,11 @@ async def get_or_create_session(
 
 async def get_orchestrator_dep():
     """Dependency to get orchestrator - will be overridden in main.py"""
+    pass
+
+
+async def get_graph_wrapper_dep():
+    """Dependency to get LangGraph wrapper - will be overridden in main.py"""
     pass
 
 
@@ -130,6 +137,63 @@ async def process_message(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/message-graph", response_model=MessageResponse)
+async def process_message_graph(
+    request: MessageRequest,
+    graph_wrapper: ConfiguratorGraphWrapper = Depends(get_graph_wrapper_dep)
+):
+    """
+    Process user message using LangGraph wrapper (EXPERIMENTAL)
+
+    This endpoint uses the LangGraph wrapper for enhanced observability.
+    It delegates all business logic to StateByStateOrchestrator.
+
+    Benefits:
+    - LangGraph workflow visualization in LangSmith
+    - Graph-based observability
+    - Same business logic as /message endpoint
+
+    Use /message for production, /message-graph for testing/observability
+    """
+
+    try:
+        redis_storage = get_redis_session_storage()
+
+        # Get or create session from Redis
+        conversation_state = await get_or_create_session(request.session_id, request.reset, request.language)
+
+        # Process through LangGraph wrapper (delegates to orchestrator)
+        result = await graph_wrapper.invoke(
+            session_id=conversation_state.session_id,
+            user_message=request.message,
+            language=request.language
+        )
+
+        # Refresh session from Redis (updated by wrapper)
+        conversation_state = await redis_storage.get_session(conversation_state.session_id)
+        if not conversation_state:
+            raise HTTPException(status_code=500, detail="Session lost during processing")
+
+        # Build response (same format as /message endpoint)
+        response = MessageResponse(
+            session_id=conversation_state.session_id,
+            message=result.get("messages", [""])[-1] if result.get("messages") else "",
+            current_state=result.get("current_state", conversation_state.current_state.value),
+            master_parameters=conversation_state.master_parameters.dict(),
+            response_json=result.get("response_json", {}),
+            products=[],  # LangGraph wrapper returns products differently
+            awaiting_selection=False,
+            can_finalize=conversation_state.can_finalize()
+        )
+
+        logger.info(f"LangGraph endpoint processed message for session: {conversation_state.session_id}")
+        return response
+
+    except Exception as e:
+        logger.error(f"Error processing message via LangGraph: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/select")
 async def select_product(
     request: SelectProductRequest,
@@ -169,8 +233,9 @@ async def select_product(
             current_state=result.get("current_state", conversation_state.current_state.value),
             master_parameters=conversation_state.master_parameters.dict(),
             response_json=orchestrator._serialize_response_json(conversation_state),
-            products=[],
-            awaiting_selection=False
+            products=result.get("products", []),
+            awaiting_selection=result.get("awaiting_selection", False),
+            proactive_suggestions=result.get("proactive_suggestions", False)
         )
 
         return response

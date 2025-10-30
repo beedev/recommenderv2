@@ -32,6 +32,9 @@ backend.log
 frontend.log
 logs/
 
+# Documentation (generated/notes)
+docs/
+
 # Testing
 .pytest_cache/
 .coverage

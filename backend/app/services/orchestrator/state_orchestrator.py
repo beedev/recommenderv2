@@ -200,15 +200,33 @@ class StateByStateOrchestrator:
                 if next_state:
                     conversation_state.current_state = next_state
 
-                    # Generate prompt for next state
-                    next_prompt = await self.message_generator.generate_state_prompt(
-                        next_state.value,
-                        conversation_state.master_parameters.dict(),
-                        self._serialize_response_json(conversation_state),
-                        conversation_state.language
+                    # Try to get proactive suggestions for next state
+                    proactive_results = await self._get_proactive_suggestions(
+                        conversation_state,
+                        next_state,
+                        limit=3
                     )
 
-                    message = f"{confirmation}\n\n{next_prompt}"
+                    if proactive_results and proactive_results.products:
+                        # Use centralized method for proactive product display (SINGLE METHOD FOR ALL STATES)
+                        return self._build_product_selection_response(
+                            state=next_state,
+                            products=[p.dict() for p in proactive_results.products],
+                            prefix_message=f"{confirmation}\n\n",
+                            is_proactive=True,
+                            product_selected=True,
+                            auto_selected=True
+                        )
+                    else:
+                        # No proactive suggestions available, generate normal prompt
+                        next_prompt = await self.message_generator.generate_state_prompt(
+                            next_state.value,
+                            conversation_state.master_parameters.dict(),
+                            self._serialize_response_json(conversation_state),
+                            conversation_state.language
+                        )
+
+                        message = f"{confirmation}\n\n{next_prompt}"
                 else:
                     message = confirmation
 
@@ -228,20 +246,13 @@ class StateByStateOrchestrator:
             else:
                 logger.warning(f"No exact match found for '{explicit_name}' - showing all available options")
 
-        # Agent 3: Generate results message (no explicit product or not found)
-        message = await self.message_generator.generate_search_results_message(
-            ConfiguratorState.POWER_SOURCE_SELECTION.value,
-            search_results,
-            conversation_state.master_parameters.dict(),
-            conversation_state.language
+        # Agent 3: Return products with standardized message (SINGLE METHOD FOR ALL STATES)
+        return self._build_product_selection_response(
+            state=ConfiguratorState.POWER_SOURCE_SELECTION,
+            products=[p.dict() for p in search_results.products],
+            prefix_message="",
+            is_proactive=False
         )
-
-        return {
-            "message": message,
-            "current_state": ConfiguratorState.POWER_SOURCE_SELECTION.value,
-            "products": [p.dict() for p in search_results.products],
-            "awaiting_selection": True
-        }
 
     async def _process_component_selection(
         self,
@@ -343,15 +354,33 @@ class StateByStateOrchestrator:
                 if next_state:
                     conversation_state.current_state = next_state
 
-                    # Generate prompt for next state
-                    next_prompt = await self.message_generator.generate_state_prompt(
-                        next_state.value,
-                        conversation_state.master_parameters.dict(),
-                        self._serialize_response_json(conversation_state),
-                        conversation_state.language
+                    # Try to get proactive suggestions for next state
+                    proactive_results = await self._get_proactive_suggestions(
+                        conversation_state,
+                        next_state,
+                        limit=3
                     )
 
-                    message = f"{confirmation}\n\n{next_prompt}"
+                    if proactive_results and proactive_results.products:
+                        # Use centralized method for proactive product display (SINGLE METHOD FOR ALL STATES)
+                        return self._build_product_selection_response(
+                            state=next_state,
+                            products=[p.dict() for p in proactive_results.products],
+                            prefix_message=f"{confirmation}\n\n",
+                            is_proactive=True,
+                            product_selected=True,
+                            auto_selected=True
+                        )
+                    else:
+                        # No proactive suggestions available, generate normal prompt
+                        next_prompt = await self.message_generator.generate_state_prompt(
+                            next_state.value,
+                            conversation_state.master_parameters.dict(),
+                            self._serialize_response_json(conversation_state),
+                            conversation_state.language
+                        )
+
+                        message = f"{confirmation}\n\n{next_prompt}"
                 else:
                     message = confirmation
 
@@ -371,20 +400,13 @@ class StateByStateOrchestrator:
             else:
                 logger.warning(f"No exact match found for '{explicit_name}' - showing all available options")
 
-        # Agent 3: Generate results message (no explicit product or not found)
-        message = await self.message_generator.generate_search_results_message(
-            conversation_state.current_state.value,
-            search_results,
-            conversation_state.master_parameters.dict(),
-            conversation_state.language
+        # Agent 3: Return products with standardized message (SINGLE METHOD FOR ALL STATES)
+        return self._build_product_selection_response(
+            state=conversation_state.current_state,
+            products=[p.dict() for p in search_results.products],
+            prefix_message="",
+            is_proactive=False
         )
-
-        return {
-            "message": message,
-            "current_state": conversation_state.current_state.value,
-            "products": [p.dict() for p in search_results.products],
-            "awaiting_selection": True
-        }
 
     async def _process_accessories_selection(
         self,
@@ -394,11 +416,11 @@ class StateByStateOrchestrator:
         S6: Accessories Selection
         """
 
-        # For now, search for general accessories
+        # Search for accessories - LLM will determine specific category from accessory_type
         search_results = await self.product_search.search_accessories(
             conversation_state.master_parameters.dict(),
-            self._serialize_response_json(conversation_state),
-            "Accessory"  # Default category
+            self._serialize_response_json(conversation_state)
+            # No default category - let LLM-extracted accessory_type be used
         )
 
         if not search_results.products:
@@ -410,19 +432,13 @@ class StateByStateOrchestrator:
                 "products": []
             }
 
-        # Agent 3: Generate results message
-        message = self.message_generator.generate_search_results_message(
-            conversation_state.current_state.value,
-            search_results,
-            conversation_state.master_parameters.dict()
+        # Agent 3: Return products with standardized message (SINGLE METHOD FOR ALL STATES)
+        return self._build_product_selection_response(
+            state=ConfiguratorState.ACCESSORIES_SELECTION,
+            products=[p.dict() for p in search_results.products],
+            prefix_message="",
+            is_proactive=False
         )
-
-        return {
-            "message": message,
-            "current_state": ConfiguratorState.ACCESSORIES_SELECTION.value,
-            "products": [p.dict() for p in search_results.products],
-            "awaiting_selection": True
-        }
 
     async def _process_finalize(
         self,
@@ -514,6 +530,175 @@ class StateByStateOrchestrator:
 
         return await self._process_finalize(conversation_state)
 
+    def _build_product_selection_response(
+        self,
+        state: ConfiguratorState,
+        products: list,
+        prefix_message: str = "",
+        is_proactive: bool = False,
+        custom_prompt: str = None,
+        **additional_fields
+    ) -> Dict[str, Any]:
+        """
+        SINGLE method to build product selection response for ALL states
+
+        Args:
+            state: Current configurator state
+            products: List of products to display as tiles
+            prefix_message: Message to show before product options (confirmation, config summary, etc.)
+            is_proactive: Whether these are proactive suggestions or search results
+            custom_prompt: Optional custom prompt to override default selection prompt
+            additional_fields: Any additional response fields (product_selected, auto_selected, etc.)
+
+        Returns:
+            Standardized response dict with message and products
+        """
+
+        state_names = {
+            ConfiguratorState.POWER_SOURCE_SELECTION: "Power Source",
+            ConfiguratorState.FEEDER_SELECTION: "Wire Feeder",
+            ConfiguratorState.COOLER_SELECTION: "Cooling System",
+            ConfiguratorState.INTERCONNECTOR_SELECTION: "Interconnector",
+            ConfiguratorState.TORCH_SELECTION: "Torch",
+            ConfiguratorState.ACCESSORIES_SELECTION: "Accessories"
+        }
+
+        component_name = state_names.get(state, state.value.replace("_", " ").title())
+        product_count = len(products)
+
+        # Use custom prompt if provided, otherwise build default
+        if custom_prompt:
+            selection_prompt = f"\n\n📋 **{state.value.replace('_', ' ').title()}**\n\n"
+            selection_prompt += f"Here are {product_count} compatible {component_name} options:\n\n"
+            selection_prompt += custom_prompt
+        else:
+            # Build the product selection prompt
+            if is_proactive:
+                selection_prompt = f"\n\n📋 **{state.value.replace('_', ' ').title()}**\n\n"
+                selection_prompt += f"Here are {product_count} compatible {component_name} options based on your selection:\n\n"
+            else:
+                selection_prompt = f"\n\n📋 **{state.value.replace('_', ' ').title()}**\n\n"
+                selection_prompt += f"I found {product_count} {component_name} option{'s' if product_count != 1 else ''} for you:\n\n"
+
+            selection_prompt += "You can:\n"
+            selection_prompt += "- ✅ Select from these options below\n"
+            selection_prompt += "- 🔍 Provide specific requirements to search for other options\n"
+            selection_prompt += "- ⏭️ Say 'skip' if not needed"
+
+        # Combine prefix message with selection prompt
+        full_message = prefix_message + selection_prompt if prefix_message else selection_prompt
+
+        # Build standardized response
+        response = {
+            "message": full_message,
+            "current_state": state.value,
+            "products": products,
+            "awaiting_selection": True
+        }
+
+        # Add any additional fields
+        if is_proactive:
+            response["proactive_suggestions"] = True
+
+        response.update(additional_fields)
+
+        return response
+
+    def _generate_proactive_message(self, next_state: ConfiguratorState, product_count: int) -> str:
+        """Generate message for proactive product suggestions"""
+
+        state_names = {
+            ConfiguratorState.FEEDER_SELECTION: "Wire Feeder",
+            ConfiguratorState.COOLER_SELECTION: "Cooling System",
+            ConfiguratorState.INTERCONNECTOR_SELECTION: "Interconnector",
+            ConfiguratorState.TORCH_SELECTION: "Torch",
+            ConfiguratorState.ACCESSORIES_SELECTION: "Accessories"
+        }
+
+        component_name = state_names.get(next_state, next_state.value.replace("_", " ").title())
+
+        message = f"📋 **{next_state.value.replace('_', ' ').title()}**\n\n"
+        message += f"Here are {product_count} compatible {component_name} options based on your selection:\n\n"
+        message += "You can:\n"
+        message += "- ✅ Select from these options below\n"
+        message += "- 🔍 Provide specific requirements to search for other options\n"
+        message += "- ⏭️ Say 'skip' if not needed"
+
+        return message
+
+    async def _get_proactive_suggestions(
+        self,
+        conversation_state: ConversationState,
+        next_state: ConfiguratorState,
+        limit: int = 3
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Proactively search for top N products for next state
+        Uses existing selected products for compatibility validation
+
+        Args:
+            conversation_state: Current conversation state
+            next_state: The state we're moving to
+            limit: Number of products to return (default 3)
+
+        Returns:
+            SearchResults with top N products, or None if no search needed
+        """
+
+        # Map state to search method
+        search_methods = {
+            ConfiguratorState.FEEDER_SELECTION: self.product_search.search_feeder,
+            ConfiguratorState.COOLER_SELECTION: self.product_search.search_cooler,
+            ConfiguratorState.INTERCONNECTOR_SELECTION: self.product_search.search_interconnector,
+            ConfiguratorState.TORCH_SELECTION: self.product_search.search_torch,
+            ConfiguratorState.ACCESSORIES_SELECTION: self.product_search.search_accessories
+        }
+
+        search_method = search_methods.get(next_state)
+        if not search_method:
+            logger.debug(f"No search method for state: {next_state}")
+            return None  # FINALIZE or unknown state
+
+        # Get current master parameters (may be empty for next component)
+        master_params = conversation_state.master_parameters.dict()
+
+        # Get selected products for compatibility validation
+        response_json = self._serialize_response_json(conversation_state)
+
+        # Perform search with existing parameters
+        try:
+            logger.info(f"Performing proactive search for {next_state} (limit: {limit})")
+
+            if next_state == ConfiguratorState.ACCESSORIES_SELECTION:
+                search_results = await search_method(
+                    master_params,
+                    response_json,
+                    None  # Search all accessory categories (PowerSourceAccessory, FeederAccessory, etc.)
+                )
+            else:
+                search_results = await search_method(
+                    master_params,
+                    response_json
+                )
+
+            # Limit to top N products
+            if search_results.products:
+                original_count = len(search_results.products)
+                if original_count > limit:
+                    search_results.products = search_results.products[:limit]
+                    logger.info(f"Limited proactive results from {original_count} to {limit} products")
+                else:
+                    logger.info(f"Proactive search returned {original_count} products")
+
+                return search_results
+            else:
+                logger.info(f"No products found in proactive search for {next_state}")
+                return None
+
+        except Exception as e:
+            logger.warning(f"Proactive search failed for {next_state}: {e}")
+            return None
+
     async def select_product(
         self,
         conversation_state: ConversationState,
@@ -537,8 +722,23 @@ class StateByStateOrchestrator:
             conversation_state.select_component(component_type, selected_product)
 
             # Load and set component applicability
+            logger.info("=" * 80)
+            logger.info("🔍 ORCHESTRATOR: Loading applicability for PowerSource")
+            logger.info(f"Product GIN: {product_gin}")
+            logger.info(f"Product Name: {selected_product.name}")
+
             applicability = self._get_component_applicability(product_gin)
+
+            logger.info(f"Loaded applicability: {applicability}")
+            if applicability:
+                logger.info(f"  Feeder: {applicability.Feeder}")
+                logger.info(f"  Cooler: {applicability.Cooler}")
+                logger.info(f"  Interconnector: {applicability.Interconnector}")
+                logger.info(f"  Torch: {applicability.Torch}")
+                logger.info(f"  Accessories: {applicability.Accessories}")
+
             conversation_state.set_applicability(applicability)
+            logger.info("=" * 80)
 
         else:
             # Select other components
@@ -556,32 +756,77 @@ class StateByStateOrchestrator:
 
         # For Accessories, allow multiple selections - stay in current state
         if conversation_state.current_state == ConfiguratorState.ACCESSORIES_SELECTION:
-            message = f"{confirmation}\n\n{config_summary}\n\n"
-            message += "Would you like to:\n"
-            message += "- Add another accessory (select from the list above)\n"
-            message += "- Say 'done' to finalize your configuration"
+            # Perform proactive search for more accessories (excluding already selected ones)
+            proactive_results = await self._get_proactive_suggestions(
+                conversation_state,
+                ConfiguratorState.ACCESSORIES_SELECTION,
+                limit=10  # Show more accessories since they can select multiple
+            )
 
-            return {
-                "message": message,
-                "current_state": conversation_state.current_state.value,
-                "product_selected": True,
-                "stay_in_state": True  # Flag to indicate we're staying in accessories
-            }
+            prefix_message = f"{confirmation}\n\n{config_summary}\n\n"
+
+            if proactive_results and proactive_results.products:
+                # Return products for selection
+                return self._build_product_selection_response(
+                    state=ConfiguratorState.ACCESSORIES_SELECTION,
+                    products=[p.dict() for p in proactive_results.products],
+                    prefix_message=prefix_message,
+                    is_proactive=True,
+                    product_selected=True,
+                    custom_prompt=(
+                        "Would you like to:\n"
+                        "- Add another accessory (select from the options below)\n"
+                        "- Say 'done' to finalize your configuration"
+                    )
+                )
+            else:
+                # No more accessories available
+                message = f"{prefix_message}"
+                message += "Would you like to:\n"
+                message += "- Add another accessory (provide specific requirements to search)\n"
+                message += "- Say 'done' to finalize your configuration"
+
+                return {
+                    "message": message,
+                    "current_state": conversation_state.current_state.value,
+                    "product_selected": True,
+                    "stay_in_state": True
+                }
 
         # For other components, move to next state
+        logger.info("🔍 ORCHESTRATOR: Calling get_next_state()")
         next_state = conversation_state.get_next_state()
+        logger.info(f"🔍 ORCHESTRATOR: get_next_state() returned: {next_state.value if next_state else None}")
+
         if next_state:
             conversation_state.current_state = next_state
 
-            # Generate prompt for next state
-            next_prompt = await self.message_generator.generate_state_prompt(
-                next_state.value,
-                conversation_state.master_parameters.dict(),
-                self._serialize_response_json(conversation_state),
-                conversation_state.language
+            # Try to get proactive suggestions for next state
+            proactive_results = await self._get_proactive_suggestions(
+                conversation_state,
+                next_state,
+                limit=3
             )
 
-            message = f"{confirmation}\n\n{config_summary}\n\n{next_prompt}"
+            if proactive_results and proactive_results.products:
+                # Use centralized method for proactive product display (SINGLE METHOD FOR ALL STATES)
+                return self._build_product_selection_response(
+                    state=next_state,
+                    products=[p.dict() for p in proactive_results.products],
+                    prefix_message=f"{confirmation}\n\n{config_summary}\n\n",
+                    is_proactive=True,
+                    product_selected=True
+                )
+            else:
+                # No proactive suggestions available, generate normal prompt
+                next_prompt = await self.message_generator.generate_state_prompt(
+                    next_state.value,
+                    conversation_state.master_parameters.dict(),
+                    self._serialize_response_json(conversation_state),
+                    conversation_state.language
+                )
+
+                message = f"{confirmation}\n\n{config_summary}\n\n{next_prompt}"
         else:
             message = f"{confirmation}\n\n{config_summary}"
 
@@ -592,16 +837,18 @@ class StateByStateOrchestrator:
         }
 
     def _get_component_applicability(self, power_source_gin: str) -> ComponentApplicability:
-        """Load component applicability from config for power source"""
+        """Load component applicability from config for power source by GIN"""
 
         power_sources = self.applicability_config.get("power_sources", {})
         ps_config = power_sources.get(power_source_gin)
 
         if ps_config:
+            logger.info(f"✅ Found applicability config for GIN: {power_source_gin}")
             applicability_data = ps_config.get("applicability", {})
             return ComponentApplicability(**applicability_data)
         else:
             # Use default policy
+            logger.warning(f"⚠️ No applicability config found for GIN: {power_source_gin}, using defaults")
             default_policy = self.applicability_config.get("default_policy", {})
             applicability_data = default_policy.get("applicability", {})
             return ComponentApplicability(**applicability_data)
