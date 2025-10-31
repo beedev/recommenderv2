@@ -338,6 +338,248 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Authentication Modal Styles */
+        .auth-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .auth-modal.active {
+            display: flex;
+        }
+
+        .auth-modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .auth-modal-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-modal-header h2 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #6c757d;
+            transition: all 0.3s;
+        }
+
+        .auth-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .auth-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .auth-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .auth-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .auth-error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .auth-error.active {
+            display: block;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #6c757d;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        /* User Profile Styles */
+        .user-profile {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            background: white;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .user-profile.active {
+            display: flex;
+        }
+
+        .user-profile:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .auth-button {
+            display: none;
+            padding: 10px 24px;
+            background: white;
+            color: #667eea;
+            border: 2px solid white;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .auth-button.active {
+            display: block;
+        }
+
+        .auth-button:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: scale(1.05);
+        }
+
+        /* User Menu Dropdown */
+        .user-menu {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+            z-index: 100;
+        }
+
+        .user-menu.active {
+            display: block;
+        }
+
+        .user-menu-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid #e9ecef;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .user-menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-menu-item:hover {
+            background: #f8f9fa;
+        }
+
+        .user-menu-item.logout {
+            color: #dc3545;
+        }
     </style>
 </head>
 <body>
@@ -373,6 +615,22 @@
                 </div>
                 <div id="currentState" style="font-weight: 600; color: #667eea;">
                     S1: PowerSource Selection
+                </div>
+                <!-- Authentication UI -->
+                <button class="auth-button active" id="loginBtn" onclick="showAuthModal('login')">
+                    🔐 Login
+                </button>
+                <div class="user-profile" id="userProfile" onclick="toggleUserMenu()">
+                    <div class="user-avatar" id="userAvatar">U</div>
+                    <span class="user-name" id="userName">User</span>
+                </div>
+                <div class="user-menu" id="userMenu">
+                    <div class="user-menu-item" onclick="viewProfile()">
+                        👤 Profile
+                    </div>
+                    <div class="user-menu-item logout" onclick="logout()">
+                        🚪 Logout
+                    </div>
                 </div>
             </div>
 
@@ -421,13 +679,277 @@
         </div>
     </div>
 
+    <!-- Authentication Modal -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-modal-content" style="position: relative;">
+            <button class="close-modal" onclick="closeAuthModal()">×</button>
+
+            <div class="auth-modal-header">
+                <h2>Welcome to Recommender V2</h2>
+                <p style="color: #6c757d; font-size: 14px;">Sign in to save your configuration across devices</p>
+            </div>
+
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+                <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+            </div>
+
+            <div class="auth-error" id="authError"></div>
+
+            <!-- Login Form -->
+            <form class="auth-form active" id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" required placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required placeholder="Enter your password">
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                    <input type="checkbox" id="rememberMe" style="width: auto;">
+                    <label for="rememberMe" style="margin: 0; font-weight: normal;">Remember me</label>
+                </div>
+                <button type="submit" class="auth-btn" id="loginSubmitBtn">
+                    Login
+                </button>
+            </form>
+
+            <!-- Register Form -->
+            <form class="auth-form" id="registerForm" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="registerFirstName">First Name</label>
+                    <input type="text" id="registerFirstName" required placeholder="Enter your first name">
+                </div>
+                <div class="form-group">
+                    <label for="registerLastName">Last Name</label>
+                    <input type="text" id="registerLastName" required placeholder="Enter your last name">
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" required placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" required minlength="8" placeholder="Minimum 8 characters">
+                </div>
+                <div class="form-group">
+                    <label for="registerConfirmPassword">Confirm Password</label>
+                    <input type="password" id="registerConfirmPassword" required placeholder="Re-enter password">
+                </div>
+                <button type="submit" class="auth-btn" id="registerSubmitBtn">
+                    Create Account
+                </button>
+            </form>
+        </div>
+    </div>
+
     <script>
         const API_BASE = 'http://localhost:8001/api/v1/configurator';
+        const AUTH_API_BASE = 'http://localhost:8001/api/v1/auth';
         let sessionId = null;
         let selectedProducts = {};
         let responseJson = {};
         let currentLanguage = 'en';  // Default language
         let currentEndpoint = 'message';  // Default endpoint: 'message' or 'message-graph'
+
+        // ============================================================================
+        // AuthService - Token Management and Authentication
+        // ============================================================================
+        class AuthService {
+            constructor() {
+                this.accessToken = null;
+                this.refreshToken = null;
+                this.user = null;
+                this.refreshTimer = null;
+
+                // Load tokens from localStorage on init
+                this.loadTokens();
+
+                // Start automatic token refresh if logged in
+                if (this.isAuthenticated()) {
+                    this.startTokenRefresh();
+                }
+            }
+
+            // Save tokens to localStorage
+            saveTokens(accessToken, refreshToken, user) {
+                this.accessToken = accessToken;
+                this.refreshToken = refreshToken;
+                this.user = user;
+
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('refreshToken', refreshToken);
+                localStorage.setItem('user', JSON.stringify(user));
+            }
+
+            // Load tokens from localStorage
+            loadTokens() {
+                this.accessToken = localStorage.getItem('accessToken');
+                this.refreshToken = localStorage.getItem('refreshToken');
+                const userJson = localStorage.getItem('user');
+                this.user = userJson ? JSON.parse(userJson) : null;
+            }
+
+            // Clear tokens from memory and localStorage
+            clearTokens() {
+                this.accessToken = null;
+                this.refreshToken = null;
+                this.user = null;
+
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+                localStorage.removeItem('user');
+
+                if (this.refreshTimer) {
+                    clearInterval(this.refreshTimer);
+                    this.refreshTimer = null;
+                }
+            }
+
+            // Check if user is authenticated
+            isAuthenticated() {
+                return !!this.accessToken && !!this.user;
+            }
+
+            // Get authorization header for API calls
+            getAuthHeader() {
+                if (this.accessToken) {
+                    return { 'Authorization': `Bearer ${this.accessToken}` };
+                }
+                return {};
+            }
+
+            // Login
+            async login(email, password, rememberMe = false) {
+                try {
+                    const response = await fetch(`${AUTH_API_BASE}/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password, rememberMe })
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.detail || 'Login failed');
+                    }
+
+                    const data = await response.json();
+                    this.saveTokens(data.token, data.refreshToken, data.user);
+                    this.startTokenRefresh();
+
+                    console.log('Login successful:', data.user);
+                    return data;
+                } catch (error) {
+                    console.error('Login error:', error);
+                    throw error;
+                }
+            }
+
+            // Register
+            async register(firstName, lastName, email, password, confirmPassword) {
+                try {
+                    const response = await fetch(`${AUTH_API_BASE}/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            firstName,
+                            lastName,
+                            email,
+                            password,
+                            confirmPassword
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.detail || 'Registration failed');
+                    }
+
+                    const data = await response.json();
+                    this.saveTokens(data.token, data.refreshToken, data.user);
+                    this.startTokenRefresh();
+
+                    console.log('Registration successful:', data.user);
+                    return data;
+                } catch (error) {
+                    console.error('Registration error:', error);
+                    throw error;
+                }
+            }
+
+            // Refresh access token
+            async refreshAccessToken() {
+                if (!this.refreshToken) {
+                    console.log('No refresh token available');
+                    return false;
+                }
+
+                try {
+                    const response = await fetch(`${AUTH_API_BASE}/refresh`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ refreshToken: this.refreshToken })
+                    });
+
+                    if (!response.ok) {
+                        console.log('Token refresh failed, logging out');
+                        this.clearTokens();
+                        updateUIForAuth();
+                        return false;
+                    }
+
+                    const data = await response.json();
+                    this.accessToken = data.token;
+                    localStorage.setItem('accessToken', data.token);
+
+                    console.log('Access token refreshed successfully');
+                    return true;
+                } catch (error) {
+                    console.error('Token refresh error:', error);
+                    this.clearTokens();
+                    updateUIForAuth();
+                    return false;
+                }
+            }
+
+            // Start automatic token refresh (every 10 minutes)
+            startTokenRefresh() {
+                if (this.refreshTimer) {
+                    clearInterval(this.refreshTimer);
+                }
+
+                // Refresh token every 10 minutes (access tokens expire in 15 minutes)
+                this.refreshTimer = setInterval(() => {
+                    console.log('Auto-refreshing access token...');
+                    this.refreshAccessToken();
+                }, 10 * 60 * 1000); // 10 minutes
+            }
+
+            // Logout
+            async logout() {
+                try {
+                    if (this.refreshToken) {
+                        await fetch(`${AUTH_API_BASE}/logout`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...this.getAuthHeader()
+                            },
+                            body: JSON.stringify({ refreshToken: this.refreshToken })
+                        });
+                    }
+                } catch (error) {
+                    console.error('Logout error:', error);
+                }
+
+                this.clearTokens();
+                console.log('Logged out successfully');
+            }
+        }
+
+        // Initialize AuthService
+        const authService = new AuthService();
 
         // I18n Translation Dictionary
         const translations = {
@@ -764,9 +1286,15 @@
             sendBtn.innerHTML = '<div class="loading"></div>';
 
             try {
+                // Include authentication header if logged in
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...authService.getAuthHeader()
+                };
+
                 const response = await fetch(`${API_BASE}/${currentEndpoint}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: headers,
                     body: JSON.stringify({
                         session_id: sessionId,
                         message: message,
@@ -827,9 +1355,15 @@
             addMessage(`✅ Selected: ${productData.name} (GIN: ${gin})`, true);
 
             try {
+                // Include authentication header if logged in
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...authService.getAuthHeader()
+                };
+
                 const response = await fetch(`${API_BASE}/select`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: headers,
                     body: JSON.stringify({
                         session_id: sessionId,
                         product_gin: gin,
@@ -867,11 +1401,192 @@
             addMessage('✅ Configuration finalized! Your equipment setup is complete.', false);
         }
 
+        // ============================================================================
+        // Authentication UI Functions
+        // ============================================================================
+
+        // Show authentication modal
+        function showAuthModal(tab = 'login') {
+            const modal = document.getElementById('authModal');
+            modal.classList.add('active');
+            switchAuthTab(tab);
+        }
+
+        // Close authentication modal
+        function closeAuthModal() {
+            const modal = document.getElementById('authModal');
+            modal.classList.remove('active');
+            clearAuthError();
+        }
+
+        // Switch between login/register tabs
+        function switchAuthTab(tab) {
+            const loginTab = document.querySelector('.auth-tab:first-child');
+            const registerTab = document.querySelector('.auth-tab:last-child');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+
+            if (tab === 'login') {
+                loginTab.classList.add('active');
+                registerTab.classList.remove('active');
+                loginForm.classList.add('active');
+                registerForm.classList.remove('active');
+            } else {
+                registerTab.classList.add('active');
+                loginTab.classList.remove('active');
+                registerForm.classList.add('active');
+                loginForm.classList.remove('active');
+            }
+
+            clearAuthError();
+        }
+
+        // Show authentication error
+        function showAuthError(message) {
+            const errorDiv = document.getElementById('authError');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('active');
+        }
+
+        // Clear authentication error
+        function clearAuthError() {
+            const errorDiv = document.getElementById('authError');
+            errorDiv.classList.remove('active');
+        }
+
+        // Handle login form submission
+        async function handleLogin(event) {
+            event.preventDefault();
+            clearAuthError();
+
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+            const submitBtn = document.getElementById('loginSubmitBtn');
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
+
+            try {
+                await authService.login(email, password, rememberMe);
+                closeAuthModal();
+                updateUIForAuth();
+                addMessage('✅ Logged in successfully! Your session will now be saved across devices.', false);
+            } catch (error) {
+                showAuthError(error.message);
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Login';
+        }
+
+        // Handle register form submission
+        async function handleRegister(event) {
+            event.preventDefault();
+            clearAuthError();
+
+            const firstName = document.getElementById('registerFirstName').value;
+            const lastName = document.getElementById('registerLastName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            const submitBtn = document.getElementById('registerSubmitBtn');
+
+            if (password !== confirmPassword) {
+                showAuthError('Passwords do not match');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating account...';
+
+            try {
+                await authService.register(firstName, lastName, email, password, confirmPassword);
+                closeAuthModal();
+                updateUIForAuth();
+                addMessage('✅ Account created successfully! Welcome to Recommender V2.', false);
+            } catch (error) {
+                showAuthError(error.message);
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create Account';
+        }
+
+        // Toggle user menu dropdown
+        function toggleUserMenu() {
+            const userMenu = document.getElementById('userMenu');
+            userMenu.classList.toggle('active');
+        }
+
+        // Close user menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const userProfile = document.getElementById('userProfile');
+            const userMenu = document.getElementById('userMenu');
+
+            if (!userProfile.contains(event.target) && !userMenu.contains(event.target)) {
+                userMenu.classList.remove('active');
+            }
+        });
+
+        // View user profile
+        function viewProfile() {
+            const user = authService.user;
+            if (user) {
+                addMessage(`👤 Profile: ${user.firstName} ${user.lastName} (${user.email})`, false);
+            }
+            toggleUserMenu();
+        }
+
+        // Logout
+        async function logout() {
+            toggleUserMenu();
+            await authService.logout();
+            updateUIForAuth();
+            addMessage('👋 Logged out successfully. Your session will continue as anonymous.', false);
+        }
+
+        // Update UI based on authentication state
+        function updateUIForAuth() {
+            const loginBtn = document.getElementById('loginBtn');
+            const userProfile = document.getElementById('userProfile');
+            const userAvatar = document.getElementById('userAvatar');
+            const userName = document.getElementById('userName');
+
+            if (authService.isAuthenticated()) {
+                // Hide login button, show user profile
+                loginBtn.classList.remove('active');
+                userProfile.classList.add('active');
+
+                // Update user avatar and name
+                const user = authService.user;
+                const initials = user.firstName[0] + user.lastName[0];
+                userAvatar.textContent = initials.toUpperCase();
+                userName.textContent = `${user.firstName} ${user.lastName}`;
+
+                console.log('UI updated for authenticated user:', user);
+            } else {
+                // Show login button, hide user profile
+                loginBtn.classList.add('active');
+                userProfile.classList.remove('active');
+
+                console.log('UI updated for anonymous user');
+            }
+        }
+
         // Initialize on load
         window.onload = () => {
             console.log('Recommender V2 Test Interface Ready');
             console.log('API Endpoint:', API_BASE);
+            console.log('Auth API Endpoint:', AUTH_API_BASE);
             console.log('Frontend URL: http://localhost:3001');
+
+            // Initialize authentication UI
+            updateUIForAuth();
+            if (authService.isAuthenticated()) {
+                console.log('User already authenticated:', authService.user);
+                addMessage('👋 Welcome back! You are logged in as ' + authService.user.firstName + '.', false);
+            }
 
             // Load saved language preference
             const savedLanguage = sessionStorage.getItem('preferredLanguage');

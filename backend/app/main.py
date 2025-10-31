@@ -14,7 +14,11 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 
+# Load environment variables BEFORE any local imports
+load_dotenv()
+
 from .api.v1.configurator import router as configurator_router
+from .api.v1.auth import router as auth_router
 from .services.intent.parameter_extractor import ParameterExtractor
 from .services.neo4j.product_search import Neo4jProductSearch
 from .services.response.message_generator import MessageGenerator
@@ -33,9 +37,7 @@ from .database.database import (
 from .database.redis_session_storage import init_redis_session_storage
 from .database.postgres_archival import postgres_archival_service
 from .services.observability.langsmith_service import get_langsmith_service
-
-# Load environment variables
-load_dotenv()
+from .services.auth_session_service import init_auth_session_service
 
 # Configure logging from environment
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -90,6 +92,10 @@ async def lifespan(app: FastAPI):
         redis_client = await get_redis_client()
         init_redis_session_storage(redis_client, ttl=3600)
         logger.info("✓ Redis session storage initialized")
+
+        # Initialize auth session service (7 days TTL for auth sessions)
+        init_auth_session_service(redis_client, session_ttl=604800)
+        logger.info("✓ Auth session service initialized")
     except Exception as e:
         logger.warning(f"Redis initialization failed: {e}. Continuing without Redis caching.")
 
@@ -229,6 +235,7 @@ def get_graph_wrapper() -> ConfiguratorGraphWrapper:
 
 # Include routers
 app.include_router(configurator_router)
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["authentication"])
 
 # Override dependency in app (not router)
 from .api.v1.configurator import get_orchestrator_dep, get_graph_wrapper_dep

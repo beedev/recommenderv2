@@ -12,11 +12,13 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from ...models.conversation import ConversationState, ConfiguratorState
+from ...models.user import User
 from ...services.orchestrator.state_orchestrator import StateByStateOrchestrator
 from ...services.graph.configurator_wrapper import ConfiguratorGraphWrapper
 from ...database.redis_session_storage import get_redis_session_storage
 from ...database.postgres_archival import postgres_archival_service
 from ...database.database import get_postgres_session
+from ...middleware.auth_middleware import get_current_user_optional
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +56,10 @@ class MessageResponse(BaseModel):
 async def get_or_create_session(
     session_id: Optional[str] = None,
     reset: bool = False,
-    language: str = "en"
+    language: str = "en",
+    user_id: Optional[int] = None
 ) -> ConversationState:
-    """Get existing session from Redis or create new one"""
+    """Get existing session from Redis or create new one with optional user association"""
 
     redis_storage = get_redis_session_storage()
 
@@ -68,17 +71,21 @@ async def get_or_create_session(
             if existing_session.language != language:
                 existing_session.language = language
                 await redis_storage.save_session(existing_session)
-            logger.info(f"Retrieved existing session from Redis: {session_id} (language: {language})")
+            logger.info(f"Retrieved existing session from Redis: {session_id} (language: {language}, user_id: {user_id})")
             return existing_session
 
     # Create new session
     new_session_id = session_id or str(uuid.uuid4())
-    conversation_state = ConversationState(session_id=new_session_id, language=language)
+    conversation_state = ConversationState(
+        session_id=new_session_id,
+        language=language,
+        user_id=user_id  # Associate session with authenticated user (if present)
+    )
 
     # Save to Redis
     await redis_storage.save_session(conversation_state)
 
-    logger.info(f"Created new session in Redis: {new_session_id} (language: {language})")
+    logger.info(f"Created new session in Redis: {new_session_id} (language: {language}, user_id: {user_id})")
     return conversation_state
 
 
@@ -95,7 +102,8 @@ async def get_graph_wrapper_dep():
 @router.post("/message", response_model=MessageResponse)
 async def process_message(
     request: MessageRequest,
-    orchestrator: StateByStateOrchestrator = Depends(get_orchestrator_dep)
+    orchestrator: StateByStateOrchestrator = Depends(get_orchestrator_dep),
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Process user message in S1→S7 flow
@@ -104,13 +112,20 @@ async def process_message(
     - Searches for compatible products
     - Generates conversational response
     - Manages state progression
+    - Optional: Associates session with authenticated user
     """
 
     try:
         redis_storage = get_redis_session_storage()
 
-        # Get or create session from Redis
-        conversation_state = await get_or_create_session(request.session_id, request.reset, request.language)
+        # Get or create session from Redis (with optional user association)
+        user_id = current_user.id if current_user else None
+        conversation_state = await get_or_create_session(
+            request.session_id,
+            request.reset,
+            request.language,
+            user_id
+        )
 
         # Process message through orchestrator
         result = await orchestrator.process_message(conversation_state, request.message)
@@ -140,7 +155,8 @@ async def process_message(
 @router.post("/message-graph", response_model=MessageResponse)
 async def process_message_graph(
     request: MessageRequest,
-    graph_wrapper: ConfiguratorGraphWrapper = Depends(get_graph_wrapper_dep)
+    graph_wrapper: ConfiguratorGraphWrapper = Depends(get_graph_wrapper_dep),
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Process user message using LangGraph wrapper (EXPERIMENTAL)
@@ -152,6 +168,7 @@ async def process_message_graph(
     - LangGraph workflow visualization in LangSmith
     - Graph-based observability
     - Same business logic as /message endpoint
+    - Optional: Associates session with authenticated user
 
     Use /message for production, /message-graph for testing/observability
     """
@@ -159,8 +176,14 @@ async def process_message_graph(
     try:
         redis_storage = get_redis_session_storage()
 
-        # Get or create session from Redis
-        conversation_state = await get_or_create_session(request.session_id, request.reset, request.language)
+        # Get or create session from Redis (with optional user association)
+        user_id = current_user.id if current_user else None
+        conversation_state = await get_or_create_session(
+            request.session_id,
+            request.reset,
+            request.language,
+            user_id
+        )
 
         # Process through LangGraph wrapper (delegates to orchestrator)
         result = await graph_wrapper.invoke(
@@ -197,7 +220,8 @@ async def process_message_graph(
 @router.post("/select")
 async def select_product(
     request: SelectProductRequest,
-    orchestrator: StateByStateOrchestrator = Depends(get_orchestrator_dep)
+    orchestrator: StateByStateOrchestrator = Depends(get_orchestrator_dep),
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Select a product for current state component
@@ -206,6 +230,7 @@ async def select_product(
     - Updates response JSON
     - Moves to next state
     - Returns next state prompt
+    - Optional: Works with authenticated user sessions
     """
 
     try:

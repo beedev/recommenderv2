@@ -160,6 +160,7 @@ class ConversationState(BaseModel):
     """
 
     session_id: str
+    user_id: Optional[int] = None  # Optional: associates session with authenticated user
     current_state: ConfiguratorState = ConfiguratorState.POWER_SOURCE_SELECTION
 
     # Core JSON structures

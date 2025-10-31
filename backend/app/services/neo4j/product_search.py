@@ -796,6 +796,9 @@ class Neo4jProductSearch:
         feeder_gin = response_json.get("Feeder", {}).get("gin")
         cooler_gin = response_json.get("Cooler", {}).get("gin")
 
+        # Debug: Log what components are available for compatibility filtering
+        logger.info(f"🔍 Accessories search - PowerSource GIN: {power_source_gin}, Feeder GIN: {feeder_gin}, Cooler GIN: {cooler_gin}")
+
         # Get already-selected accessory GINs to exclude them
         selected_accessories = response_json.get("Accessories", [])
         selected_gins = [acc.get("gin") for acc in selected_accessories if isinstance(acc, dict)]
@@ -866,6 +869,7 @@ class Neo4jProductSearch:
         # Build base query to search across ALL accessory categories
         # We'll use UNION to combine results from different compatibility paths
         elif power_source_gin or feeder_gin or cooler_gin:
+            logger.info(f"🔍 Using compatibility-based UNION query for accessories")
             # Build UNION query for multiple compatibility paths
 
             # Build exclusion clause
@@ -914,8 +918,11 @@ class Neo4jProductSearch:
 
             # Combine with UNION to get all compatible accessories
             base_query = "\nUNION\n".join(union_parts)
+            logger.info(f"🔍 Built UNION query with {len(union_parts)} parts")
+            logger.info(f"🔍 UNION query preview: {base_query[:500]}...")
         else:
             # No components selected yet - just filter by all accessory categories
+            logger.info(f"🔍 Using fallback query - no components selected yet")
             exclusion_clause = ""
             if selected_gins:
                 exclusion_clause = " AND NOT a.gin IN $excluded_gins"
@@ -980,6 +987,9 @@ class Neo4jProductSearch:
             fallback_params = params.copy()
             fallback_params["limit"] = limit
 
+        # Log query details before execution
+        logger.info(f"🔍 Executing accessories query with params: {primary_params}")
+
         # Execute with fallback logic
         products, filters_applied = await self._execute_search_with_fallback(
             primary_query=primary_query,
@@ -991,11 +1001,34 @@ class Neo4jProductSearch:
             category="Accessory"
         )
 
+        # SECOND-LEVEL FALLBACK: If compatibility-based query returns 0 products,
+        # show ALL accessories (no compatibility requirement)
+        if len(products) == 0 and (power_source_gin or feeder_gin or cooler_gin):
+            logger.warning(f"⚠️ No compatible accessories found - falling back to ALL accessories")
+            filters_applied["fallback_mode"] = "show_all_accessories"
+
+            # Build query for ALL accessories
+            all_accessories_query = """
+            MATCH (a:Product)
+            WHERE (a.category CONTAINS 'Accessory' OR a.category = 'Remote')
+            AND a.is_available = true
+            RETURN DISTINCT a.gin as gin, a.name as name, a.category as category,
+                   a.description as description,
+                   a.specifications_json as specifications_json,
+                   a as specifications
+            ORDER BY name
+            LIMIT $limit
+            """
+            all_accessories_params = {"limit": limit}
+
+            products = await self._execute_search(all_accessories_query, all_accessories_params)
+            logger.info(f"✅ Fallback returned {len(products)} accessories")
+
         return SearchResults(
             products=products,
             total_count=len(products),
             filters_applied=filters_applied,
-            compatibility_validated=bool(compatibility_filters)
+            compatibility_validated=bool(compatibility_filters) and "fallback_mode" not in filters_applied
         )
 
     async def _execute_search(self, query: str, params: Dict[str, Any]) -> List[ProductResult]:

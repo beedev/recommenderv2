@@ -157,8 +157,9 @@ If user says "accessories" without category, leave accessory_type empty.
         except Exception as e:
             logger.error(f"Parameter extraction failed: {e}")
 
-            # Return unchanged master_parameters on error
-            return master_parameters
+            # FALLBACK: Try simple text-based extraction when LLM fails
+            logger.info("Using fallback text-based extraction...")
+            return self._fallback_text_extraction(user_message, current_state, master_parameters)
 
     def _build_extraction_prompt(
         self,
@@ -334,6 +335,75 @@ RETURN COMPLETE UPDATED JSON:
 
             # Return fallback master_parameters unchanged
             return fallback_master
+
+    def _fallback_text_extraction(
+        self,
+        user_message: str,
+        current_state: str,
+        master_parameters: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Fallback text-based extraction when LLM fails.
+        Uses simple pattern matching to extract product names.
+        """
+        import re
+
+        logger.info(f"🔄 Fallback extraction for: '{user_message}' in state: {current_state}")
+
+        # Copy master parameters
+        updated_params = master_parameters.copy()
+
+        # Determine which component to extract for based on current state
+        state_to_component = {
+            "power_source_selection": "power_source",
+            "feeder_selection": "feeder",
+            "cooler_selection": "cooler",
+            "interconnector_selection": "interconnector",
+            "torch_selection": "torch",
+            "accessories_selection": "accessories"
+        }
+
+        component = state_to_component.get(current_state)
+        if not component:
+            logger.warning(f"⚠️ Unknown state for fallback: {current_state}")
+            return master_parameters
+
+        # Get known product names for this component
+        known_products = self.product_names.get(component, [])
+
+        if not known_products:
+            logger.warning(f"⚠️ No known products for component: {component}")
+            return master_parameters
+
+        # Search for product name matches in user message (case-insensitive)
+        user_lower = user_message.lower()
+        matched_product = None
+
+        for product in known_products:
+            # Try exact match first
+            if product.lower() in user_lower:
+                matched_product = product
+                logger.info(f"✅ Exact match found: {product}")
+                break
+
+            # Try fuzzy match (remove spaces, hyphens for comparison)
+            product_normalized = re.sub(r'[\s\-]', '', product.lower())
+            message_normalized = re.sub(r'[\s\-]', '', user_lower)
+            if product_normalized in message_normalized:
+                matched_product = product
+                logger.info(f"✅ Fuzzy match found: {product}")
+                break
+
+        # If product found, add to parameters
+        if matched_product:
+            logger.info(f"✅ Fallback extracted product: '{matched_product}' for component '{component}'")
+            if component not in updated_params:
+                updated_params[component] = {}
+            updated_params[component]["product_name"] = matched_product
+        else:
+            logger.warning(f"❌ No product match found in fallback extraction for '{user_message}'")
+
+        return updated_params
 
 
 # Dependency injection
